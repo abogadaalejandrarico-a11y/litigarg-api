@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Litigarg</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Tipografía -->
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* LOGIN */
+    .login {
+      margin: auto;
+      background: #111827;
+      padding: 40px;
+      border-radius: 12px;
+      width: 320px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      background: #1f2937;
+      border: none;
+      color: white;
+      border-radius: 8px;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 15px;
+      padding: 12px;
+      background: #c9a227;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    /* CHAT */
+    .chat {
+      display: none;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .msg {
+      margin-bottom: 10px;
+      padding: 12px;
+      border-radius: 10px;
+      max-width: 70%;
+    }
+
+    .user {
+      background: #1e40af;
+      margin-left: auto;
+    }
+
+    .bot {
+      background: #111827;
+    }
+
+    .input-area {
+      display: flex;
+      padding: 15px;
+      background: #020617;
+    }
+
+    .input-area input {
+      flex: 1;
+      margin-right: 10px;
+    }
+  </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- LOGIN -->
+
+  <div class="login" id="loginBox">
+    <h2>Litigarg</h2>
+    <input type="email" id="email" placeholder="Correo">
+    <input type="password" id="password" placeholder="Contraseña">
+    <button onclick="login()">Ingresar</button>
+  </div>
+
+  <!-- CHAT -->
+
+  <div class="chat" id="chatBox">
+    <div class="messages" id="messages"></div>
+
+```
+<div class="input-area">
+  <input id="msgInput" placeholder="Escribe tu argumento...">
+  <button onclick="sendMessage()">Enviar</button>
+</div>
+```
+
+  </div>
+
+</div>
+
+<script>
+
+let token = "";
+
+// LOGIN
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  try {
+    const res = await fetch("https://litigarg-api.onrender.com/api/auth/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({email, password})
+    });
+
+    const data = await res.json();
+    console.log(data);
+
+    if(data.token){
+      token = data.token;
+      document.getElementById("loginBox").style.display = "none";
+      document.getElementById("chatBox").style.display = "flex";
+    } else {
+      alert(data.error || "Error login");
+    }
+
+  } catch (error) {
+    console.error(error);
+    alert("Error de conexión con el servidor");
+  }
+}
+
+// CHAT
+async function sendMessage() {
+  const input = document.getElementById("msgInput");
+  const text = input.value;
+
+  if(!text) return;
+
+  addMessage(text, "user");
+
+  try {
+    const res = await fetch("https://litigarg-api.onrender.com/api/gpt/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type":"application/json",
+        "Authorization":"Bearer " + token
+      },
+      body: JSON.stringify({message: text})
+    });
+
+    const data = await res.json();
+    addMessage(data.answer, "bot");
+
+  } catch (error) {
+    console.error(error);
+    alert("Error enviando mensaje");
+  }
+
+  input.value = "";
+}
+
+// PINTAR MENSAJES
+function addMessage(text, type){
+  const msg = document.createElement("div");
+  msg.className = "msg " + type;
+  msg.innerText = text;
+  document.getElementById("messages").appendChild(msg);
+}
+
+</script>
+
+</body>
+</html>
