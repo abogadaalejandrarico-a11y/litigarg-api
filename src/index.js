@@ -19,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 
 // 🔥 Ruta base (robusta)
-app.use("/", (req, res) => {
+app.get("/", (req, res) => {
   res.send("Litigarg API funcionando 🚀");
 });
 
