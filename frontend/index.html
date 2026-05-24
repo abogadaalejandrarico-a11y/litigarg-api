@@ -1057,14 +1057,10 @@ if(res.status === 403){
 
   const premiumMessage =
     data.code === "FREE_LIMIT_REACHED"
-      ? "Ya usaste tus preguntas gratis. Para seguir usando LitigARG, activa Premium."
+      ? "Se agotó tu experiencia gratuita. Para seguir usando LitigARG, activa tu experiencia Premium.\n\nPresiona el botón Activar Premium para continuar con tu asistente de litigación penal LitigARG."
       : data.error || "Necesitas activar Premium para usar esta función.";
 
-  addMessageToConversation(
-    conversationId,
-    premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.",
-    "bot"
-  );
+  addMessageToConversation(conversationId,premiumMessage,"bot");
 
   return;
 
@@ -1142,14 +1138,10 @@ async function analyzeSelectedFile(){
 
       const premiumMessage =
         data.code === "FREE_LIMIT_REACHED"
-          ? "Ya usaste tus preguntas gratis. Para seguir analizando documentos, activa Premium."
+          ? "Se agotó tu experiencia gratuita. Para seguir analizando documentos con LitigARG, activa tu experiencia Premium.\n\nPresiona el botón Activar Premium para continuar con tu asistente de litigación penal LitigARG."
           : data.error || "Necesitas activar Premium para analizar documentos.";
 
-      addMessageToConversation(
-        conversationId,
-        premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.",
-        "bot"
-      );
+      addMessageToConversation(conversationId,premiumMessage,"bot");
 
       return;
 
