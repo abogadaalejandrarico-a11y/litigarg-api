@@ -83,6 +83,29 @@ body{
   background:#D10000;
 }
 
+.auth-toggle{
+  margin-top:18px;
+  color:#9CA3AF;
+  font-size:14px;
+  text-align:center;
+}
+
+.auth-toggle button{
+  width:auto;
+  margin:0;
+  padding:0;
+  background:transparent;
+  color:#F5C542;
+  border:none;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.auth-toggle button:hover{
+  background:transparent;
+  color:#FFD966;
+}
+
 /* APP */
 
 .app{
@@ -389,7 +412,12 @@ body{
   placeholder="Contraseña"
   onkeypress="handleLoginEnter(event)"
 >
-    <button onclick="login()">Ingresar</button>
+    <button id="authButton" onclick="handleAuth()">Ingresar</button>
+
+    <div class="auth-toggle">
+      <span id="authToggleText">¿No tienes cuenta?</span>
+      <button onclick="toggleAuthMode()" id="authToggleButton">Crear cuenta</button>
+    </div>
 
   </div>
 
@@ -511,6 +539,8 @@ let token = "";
 
 const API_URL = "https://litigarg-api.onrender.com";
 
+let authMode = "login";
+
 let conversations = [];
 
 let currentConversation = null;
@@ -519,9 +549,45 @@ function handleLoginEnter(event){
 
   if(event.key === "Enter"){
 
-    login();
+    handleAuth();
 
   }
+
+}
+
+function toggleAuthMode(){
+
+  authMode = authMode === "login" ? "register" : "login";
+
+  const button = document.getElementById("authButton");
+  const toggleText = document.getElementById("authToggleText");
+  const toggleButton = document.getElementById("authToggleButton");
+
+  if(authMode === "register"){
+
+    button.innerText = "Crear cuenta";
+    toggleText.innerText = "¿Ya tienes cuenta?";
+    toggleButton.innerText = "Ingresar";
+    return;
+
+  }
+
+  button.innerText = "Ingresar";
+  toggleText.innerText = "¿No tienes cuenta?";
+  toggleButton.innerText = "Crear cuenta";
+
+}
+
+async function handleAuth(){
+
+  if(authMode === "register"){
+
+    await register();
+    return;
+
+  }
+
+  await login();
 
 }
 
@@ -691,6 +757,56 @@ function loadConversation(){
 }
 
 // LOGIN
+
+async function register(){
+
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  if(!email || !password){
+
+    alert("Escribe correo y contraseña para crear tu cuenta.");
+    return;
+
+  }
+
+  try{
+
+    const res = await fetch(
+      API_URL + "/api/auth/register",
+      {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          email,
+          password
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    if(res.ok){
+
+      alert("Cuenta creada. Ahora puedes ingresar.");
+      authMode = "register";
+      toggleAuthMode();
+      return;
+
+    }
+
+    alert(data.error || "No se pudo crear la cuenta.");
+
+  }catch(error){
+
+    console.error(error);
+    alert("Error de conexión");
+
+  }
+
+}
 
 async function login(){
 
