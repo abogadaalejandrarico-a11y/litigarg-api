@@ -10,27 +10,28 @@ import contraFiscaliaRoutes from "./routes/contraFiscalia.js";
 
 dotenv.config();
 
-console.log("🔥 INDEX.JS CARGADO EN RENDER");
+console.log("INDEX.JS CARGADO EN RENDER");
 
 const app = express();
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
+app.use(express.static("frontend"));
 
-// 🔥 Ruta base (robusta)
-app.get("/", (req, res) => {
-  res.send("Litigarg API funcionando 🚀");
-});
-
-// Rutas API
 app.use("/api/auth", authRoutes);
 app.use("/api/gpt", gptRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/gpt/contra-fiscalia", contraFiscaliaRoutes);
 
-// Servidor
+app.get("/", (req, res) => {
+  res.sendFile("frontend/index.html", { root: process.cwd() });
+});
+
+app.get(["/success", "/failure", "/pending"], (req, res) => {
+  res.sendFile("frontend/index.html", { root: process.cwd() });
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

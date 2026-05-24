@@ -131,7 +131,7 @@ body{
 }
 
 .new-chat{
-  margin:20px;
+  margin:20px 20px 10px 20px;
   padding:14px;
   background:#B30000;
   border:none;
@@ -139,6 +139,27 @@ body{
   color:white;
   font-weight:600;
   cursor:pointer;
+}
+
+.premium-button{
+  margin:0 20px 20px 20px;
+  padding:14px;
+  background:#F5C542;
+  border:none;
+  border-radius:12px;
+  color:#111111;
+  font-weight:700;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.premium-button:hover{
+  background:#FFD966;
+}
+
+.premium-button:disabled{
+  opacity:0.7;
+  cursor:not-allowed;
 }
 
 .chats{
@@ -390,6 +411,10 @@ body{
       + Nuevo chat
     </button>
 
+    <button class="premium-button" id="premiumButton" onclick="activatePremium()">
+      Activar Premium
+    </button>
+
     <div class="chats" id="chatList"></div>
 
   </div>
@@ -476,6 +501,8 @@ body{
 
 let token = "";
 
+const API_URL = "https://litigarg-api.onrender.com";
+
 let conversations = [];
 
 let currentConversation = null;
@@ -507,6 +534,82 @@ function setPrompt(text){
   input.value = text;
 
   input.focus();
+
+}
+
+function getCurrentUser(){
+
+  if(!token) return null;
+
+  try{
+
+    const payload = token.split(".")[1];
+    const decoded = JSON.parse(atob(payload));
+
+    return decoded;
+
+  }catch(error){
+
+    console.error(error);
+    return null;
+
+  }
+
+}
+
+async function activatePremium(){
+
+  const user = getCurrentUser();
+  const button = document.getElementById("premiumButton");
+
+  if(!user?.userId){
+
+    alert("Primero inicia sesión para activar Premium.");
+    return;
+
+  }
+
+  button.disabled = true;
+  button.innerText = "Preparando pago...";
+
+  try{
+
+    const res = await fetch(
+      API_URL + "/api/payments/create",
+      {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          userId:user.userId,
+          plan:"premium_mensual"
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    if(data.init_point){
+
+      window.location.href = data.init_point;
+      return;
+
+    }
+
+    alert(data.error || "No se pudo crear el pago.");
+
+  }catch(error){
+
+    console.error(error);
+    alert("Error conectando con Mercado Pago.");
+
+  }finally{
+
+    button.disabled = false;
+    button.innerText = "Activar Premium";
+
+  }
 
 }
 
@@ -589,7 +692,7 @@ async function login(){
   try{
 
     const res = await fetch(
-      "https://litigarg-api.onrender.com/api/auth/login",
+      API_URL + "/api/auth/login",
       {
         method:"POST",
         headers:{
@@ -670,7 +773,7 @@ currentConversation.messages.push({
   try{
 
     const res = await fetch(
-      "https://litigarg-api.onrender.com/api/gpt/chat",
+      API_URL + "/api/gpt/chat",
       {
         method:"POST",
         headers:{
@@ -687,10 +790,25 @@ currentConversation.messages.push({
 
 document.getElementById("typing")?.remove();
 
-typeMessage(data.answer || "Error");
+if(res.status === 403){
+
+  const premiumMessage = data.error || "Necesitas activar Premium para usar esta función.";
+
+  typeMessage(premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.");
+
+  currentConversation.messages.push({
+    text:premiumMessage,
+    type:"bot"
+  });
+
+  return;
+
+}
+
+typeMessage(data.answer || data.error || "Error");
 
 currentConversation.messages.push({
-  text:data.answer || "Error",
+  text:data.answer || data.error || "Error",
   type:"bot"
 });
 
