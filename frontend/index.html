@@ -142,7 +142,7 @@ body{
 }
 
 .premium-button{
-  margin:0 20px 20px 20px;
+  margin:16px 20px 20px 20px;
   padding:14px;
   background:#F5C542;
   border:none;
@@ -165,6 +165,12 @@ body{
 .chats{
   padding:10px;
   overflow-y:auto;
+  flex:1;
+}
+
+.sidebar-footer{
+  margin-top:auto;
+  border-top:1px solid rgba(255,255,255,0.05);
 }
 
 .chat-item{
@@ -411,11 +417,13 @@ body{
       + Nuevo chat
     </button>
 
-    <button class="premium-button" id="premiumButton" onclick="activatePremium()">
-      Activar Premium
-    </button>
-
     <div class="chats" id="chatList"></div>
+
+    <div class="sidebar-footer">
+      <button class="premium-button" id="premiumButton" onclick="activatePremium()">
+        Activar Premium
+      </button>
+    </div>
 
   </div>
 
