@@ -185,17 +185,6 @@ body{
   cursor:not-allowed;
 }
 
-.plan-select{
-  width:calc(100% - 40px);
-  margin:16px 20px 0 20px;
-  padding:10px 12px;
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,0.08);
-  background:#1A1A1A;
-  color:white;
-  font-size:13px;
-}
-
 .chats{
   padding:8px 10px;
   overflow-y:auto;
@@ -435,6 +424,79 @@ body{
   background:#1A1A1A;
 }
 
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.72);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  z-index:1000;
+}
+
+.modal{
+  width:min(520px, calc(100vw - 32px));
+  background:#111111;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:16px;
+  padding:26px;
+  box-shadow:0 30px 90px rgba(0,0,0,0.65);
+}
+
+.modal h3{
+  font-size:22px;
+  margin-bottom:8px;
+}
+
+.modal p{
+  color:#9CA3AF;
+  font-size:14px;
+  line-height:1.5;
+}
+
+.plan-options{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin:22px 0;
+}
+
+.plan-card{
+  background:#1A1A1A;
+  color:white;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;
+  padding:18px;
+  cursor:pointer;
+  text-align:left;
+}
+
+.plan-card:hover{
+  border-color:#F5C542;
+}
+
+.plan-card strong{
+  display:block;
+  font-size:17px;
+  margin-bottom:8px;
+}
+
+.plan-card span{
+  color:#F5C542;
+  font-size:20px;
+  font-weight:700;
+}
+
+.modal-close{
+  width:100%;
+  border:none;
+  border-radius:10px;
+  padding:12px;
+  background:#262626;
+  color:white;
+  cursor:pointer;
+}
+
 @media (max-width: 900px){
   .sidebar{
     width:220px;
@@ -529,11 +591,7 @@ body{
     <div class="chats" id="chatList"></div>
 
     <div class="sidebar-footer">
-      <select class="plan-select" id="planSelect">
-        <option value="premium_mensual">Mensual - $20.900</option>
-        <option value="premium_anual">Anual - $209.000</option>
-      </select>
-      <button class="premium-button" id="premiumButton" onclick="activatePremium()">
+      <button class="premium-button" id="premiumButton" onclick="openPremiumModal()">
         Activar Premium
       </button>
     </div>
@@ -628,6 +686,27 @@ body{
 
   </div>
 
+</div>
+
+<div class="modal-overlay" id="premiumModal">
+  <div class="modal">
+    <h3>Elige tu experiencia Premium</h3>
+    <p>Continúa usando LitigARG con acceso a tus consultas y análisis documental para litigación penal.</p>
+
+    <div class="plan-options">
+      <button class="plan-card" onclick="activatePremium('premium_mensual')">
+        <strong>Mensual</strong>
+        <span>$20.900</span>
+      </button>
+
+      <button class="plan-card" onclick="activatePremium('premium_anual')">
+        <strong>Anual</strong>
+        <span>$209.000</span>
+      </button>
+    </div>
+
+    <button class="modal-close" onclick="closePremiumModal()">Ahora no</button>
+  </div>
 </div>
 
 <script>
@@ -728,7 +807,19 @@ function getCurrentUser(){
 
 }
 
-async function activatePremium(){
+function openPremiumModal(){
+
+  document.getElementById("premiumModal").style.display = "flex";
+
+}
+
+function closePremiumModal(){
+
+  document.getElementById("premiumModal").style.display = "none";
+
+}
+
+async function activatePremium(plan){
 
   const user = getCurrentUser();
   const button = document.getElementById("premiumButton");
@@ -745,8 +836,6 @@ async function activatePremium(){
 
   try{
 
-    const selectedPlan = document.getElementById("planSelect").value;
-
     const res = await fetch(
       API_URL + "/api/payments/create",
       {
@@ -756,7 +845,7 @@ async function activatePremium(){
         },
         body:JSON.stringify({
           userId:user.userId,
-          plan:selectedPlan
+          plan
         })
       }
     );
