@@ -135,4 +135,85 @@ router.get("/me", authMiddlewares, async (req, res) => {
   }
 });
 
+router.patch("/me", authMiddlewares, async (req, res) => {
+  try {
+    const { username } = req.body;
+    const cleanUsername = (username || "").trim();
+
+    if (!cleanUsername || cleanUsername.length > 10) {
+      return res.status(400).json({
+        error: "El nombre de usuario debe tener máximo 10 caracteres"
+      });
+    }
+
+    const db = await readDB();
+    const user = db.users.find(u => Number(u.id) === Number(req.user.userId));
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const existingUsername = db.users.find(u =>
+      Number(u.id) !== Number(user.id) &&
+      (u.username || "").toLowerCase() === cleanUsername.toLowerCase()
+    );
+
+    if (existingUsername) {
+      return res.status(400).json({ error: "Ese nombre de usuario ya existe" });
+    }
+
+    user.username = cleanUsername;
+    await writeDB(db);
+
+    res.json({
+      message: "Usuario actualizado",
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error actualizando perfil" });
+  }
+});
+
+router.patch("/password", authMiddlewares, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        error: "Escribe tu contraseña actual y una nueva de mínimo 6 caracteres"
+      });
+    }
+
+    const db = await readDB();
+    const user = db.users.find(u => Number(u.id) === Number(req.user.userId));
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const passwordHash = user.password || user.password_hash;
+    const validPassword = passwordHash
+      ? await bcrypt.compare(currentPassword, passwordHash)
+      : false;
+
+    if (!validPassword) {
+      return res.status(400).json({ error: "Contraseña actual incorrecta" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    delete user.password_hash;
+    await writeDB(db);
+
+    res.json({ message: "Contraseña actualizada" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error cambiando contraseña" });
+  }
+});
+
 export default router;
