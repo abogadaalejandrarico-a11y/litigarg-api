@@ -181,11 +181,17 @@ router.patch("/me", authMiddlewares, async (req, res) => {
 
 router.patch("/password", authMiddlewares, async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword, confirmPassword } = req.body;
 
     if (!currentPassword || !newPassword || newPassword.length < 6) {
       return res.status(400).json({
         error: "Escribe tu contraseña actual y una nueva de mínimo 6 caracteres"
+      });
+    }
+
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return res.status(400).json({
+        error: "La nueva contraseña y la confirmación no coinciden"
       });
     }
 

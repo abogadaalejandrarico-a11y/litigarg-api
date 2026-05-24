@@ -690,6 +690,15 @@ body{
   margin-top:10px;
 }
 
+.password-form{
+  display:none;
+  margin-top:10px;
+}
+
+.password-form.open{
+  display:flex;
+}
+
 @media (max-width: 900px){
   .sidebar{
     width:220px;
@@ -949,9 +958,11 @@ body{
 
       <div class="account-row">
         <label>Cambiar contraseña</label>
-        <div class="account-edit">
+        <button onclick="togglePasswordForm()">Cambiar contraseña</button>
+        <div class="account-edit password-form" id="passwordForm">
           <input type="password" id="currentPassword" placeholder="Actual">
           <input type="password" id="newPassword" placeholder="Nueva">
+          <input type="password" id="confirmPassword" placeholder="Confirmar nueva">
           <button onclick="updatePassword()">Cambiar</button>
         </div>
       </div>
@@ -1137,6 +1148,12 @@ function closeAccountDetails(){
 
 }
 
+function togglePasswordForm(){
+
+  document.getElementById("passwordForm").classList.toggle("open");
+
+}
+
 function formatPlanName(plan){
 
   if(plan === "premium_anual") return "Premium anual";
@@ -1285,10 +1302,18 @@ async function updatePassword(){
 
   const currentPassword = document.getElementById("currentPassword").value;
   const newPassword = document.getElementById("newPassword").value;
+  const confirmPassword = document.getElementById("confirmPassword").value;
 
-  if(!currentPassword || !newPassword){
+  if(!currentPassword || !newPassword || !confirmPassword){
 
-    alert("Escribe la contraseña actual y la nueva.");
+    alert("Escribe la contraseña actual, la nueva y la confirmación.");
+    return;
+
+  }
+
+  if(newPassword !== confirmPassword){
+
+    alert("La nueva contraseña y la confirmación no coinciden.");
     return;
 
   }
@@ -1305,7 +1330,8 @@ async function updatePassword(){
         },
         body:JSON.stringify({
           currentPassword,
-          newPassword
+          newPassword,
+          confirmPassword
         })
       }
     );
@@ -1321,6 +1347,8 @@ async function updatePassword(){
 
     document.getElementById("currentPassword").value = "";
     document.getElementById("newPassword").value = "";
+    document.getElementById("confirmPassword").value = "";
+    document.getElementById("passwordForm").classList.remove("open");
     alert("Contraseña actualizada.");
 
   }catch(error){
