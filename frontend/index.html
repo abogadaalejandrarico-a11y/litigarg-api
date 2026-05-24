@@ -916,7 +916,10 @@ document.getElementById("typing")?.remove();
 
 if(res.status === 403){
 
-  const premiumMessage = data.error || "Necesitas activar Premium para usar esta función.";
+  const premiumMessage =
+    data.code === "FREE_LIMIT_REACHED"
+      ? "Ya usaste tus preguntas gratis. Para seguir usando LitigARG, activa Premium."
+      : data.error || "Necesitas activar Premium para usar esta función.";
 
   typeMessage(premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.");
 
