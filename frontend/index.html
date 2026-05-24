@@ -714,6 +714,7 @@ body{
 let token = "";
 
 const API_URL = "https://litigarg-api.onrender.com";
+const TOKEN_STORAGE_KEY = "litigarg_token";
 
 let authMode = "login";
 
@@ -804,6 +805,35 @@ function getCurrentUser(){
     return null;
 
   }
+
+}
+
+function showApp(){
+
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+
+}
+
+function restoreSession(){
+
+  const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+
+  if(!savedToken) return;
+
+  token = savedToken;
+
+  const user = getCurrentUser();
+
+  if(!user?.userId){
+
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    token = "";
+    return;
+
+  }
+
+  showApp();
 
 }
 
@@ -1082,9 +1112,9 @@ async function login(){
     if(data.token){
 
       token = data.token;
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
 
-      document.getElementById("loginScreen").style.display = "none";
-      document.getElementById("app").style.display = "flex";
+      showApp();
 
     }else{
 
@@ -1335,6 +1365,10 @@ async function typeMessage(text){
 
 }
 
+</script>
+
+<script>
+restoreSession();
 </script>
 
 </body>
