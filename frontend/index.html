@@ -116,7 +116,7 @@ body{
 /* SIDEBAR */
 
 .sidebar{
-  width:280px;
+  width:240px;
   background:#111111;
   border-right:1px solid rgba(255,255,255,0.05);
   display:flex;
@@ -124,7 +124,7 @@ body{
 }
 
 .logo{
-  padding:30px 25px;
+  padding:24px 20px;
   border-bottom:1px solid rgba(255,255,255,0.05);
 }
 
@@ -154,8 +154,8 @@ body{
 }
 
 .new-chat{
-  margin:20px 20px 10px 20px;
-  padding:14px;
+  margin:18px 16px 10px 16px;
+  padding:12px;
   background:#B30000;
   border:none;
   border-radius:12px;
@@ -186,7 +186,7 @@ body{
 }
 
 .chats{
-  padding:10px;
+  padding:8px 10px;
   overflow-y:auto;
   flex:1;
 }
@@ -197,12 +197,17 @@ body{
 }
 
 .chat-item{
-  padding:14px;
-  border-radius:10px;
+  padding:8px 10px;
+  border-radius:8px;
   cursor:pointer;
   color:#D1D5DB;
-  margin-bottom:8px;
+  margin-bottom:4px;
   transition:0.2s;
+  font-size:13px;
+  line-height:1.25;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .chat-item:hover{
@@ -421,7 +426,7 @@ body{
 
 @media (max-width: 900px){
   .sidebar{
-    width:240px;
+    width:220px;
   }
 
   .header{
@@ -868,6 +873,31 @@ function loadConversation(){
 
 }
 
+function findConversation(conversationId){
+
+  return conversations.find(conv => conv.id === conversationId);
+
+}
+
+function addMessageToConversation(conversationId,text,type){
+
+  const conversation = findConversation(conversationId);
+
+  if(!conversation) return;
+
+  conversation.messages.push({
+    text,
+    type
+  });
+
+  if(currentConversation?.id === conversationId){
+
+    addMessage(text,type);
+
+  }
+
+}
+
 // LOGIN
 
 async function register(){
@@ -981,12 +1011,9 @@ if(!currentConversation){
 
 }
 
-  addMessage(text,"user");
+  const conversationId = currentConversation.id;
 
-currentConversation.messages.push({
-  text,
-  type:"user"
-});
+  addMessageToConversation(conversationId,text,"user");
 
   input.value = "";
 
@@ -1033,23 +1060,17 @@ if(res.status === 403){
       ? "Ya usaste tus preguntas gratis. Para seguir usando LitigARG, activa Premium."
       : data.error || "Necesitas activar Premium para usar esta función.";
 
-  typeMessage(premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.");
-
-  currentConversation.messages.push({
-    text:premiumMessage,
-    type:"bot"
-  });
+  addMessageToConversation(
+    conversationId,
+    premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.",
+    "bot"
+  );
 
   return;
 
 }
 
-typeMessage(data.answer || data.error || "Error");
-
-currentConversation.messages.push({
-  text:data.answer || data.error || "Error",
-  type:"bot"
-});
+addMessageToConversation(conversationId,data.answer || data.error || "Error","bot");
 
   }catch(error){
 
@@ -1057,10 +1078,7 @@ currentConversation.messages.push({
 
     document.getElementById("typing")?.remove();
 
-    addMessage(
-      "Error de conexión con LitigARG",
-      "bot"
-    );
+    addMessageToConversation(conversationId,"Error de conexión con LitigARG","bot");
 
   }
 
@@ -1079,12 +1097,9 @@ async function analyzeSelectedFile(){
 
   }
 
-  addMessage("Documento adjunto: " + file.name, "user");
+  const conversationId = currentConversation.id;
 
-  currentConversation.messages.push({
-    text:"Documento adjunto: " + file.name,
-    type:"user"
-  });
+  addMessageToConversation(conversationId,"Documento adjunto: " + file.name,"user");
 
   const typing = document.createElement("div");
   typing.className = "typing";
@@ -1130,23 +1145,17 @@ async function analyzeSelectedFile(){
           ? "Ya usaste tus preguntas gratis. Para seguir analizando documentos, activa Premium."
           : data.error || "Necesitas activar Premium para analizar documentos.";
 
-      typeMessage(premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.");
-
-      currentConversation.messages.push({
-        text:premiumMessage,
-        type:"bot"
-      });
+      addMessageToConversation(
+        conversationId,
+        premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.",
+        "bot"
+      );
 
       return;
 
     }
 
-    typeMessage(data.answer || data.error || "No pude analizar el documento.");
-
-    currentConversation.messages.push({
-      text:data.answer || data.error || "No pude analizar el documento.",
-      type:"bot"
-    });
+    addMessageToConversation(conversationId,data.answer || data.error || "No pude analizar el documento.","bot");
 
   }catch(error){
 
@@ -1154,10 +1163,7 @@ async function analyzeSelectedFile(){
 
     document.getElementById("typing")?.remove();
 
-    addMessage(
-      "Error de conexión analizando el documento",
-      "bot"
-    );
+    addMessageToConversation(conversationId,"Error de conexión analizando el documento","bot");
 
   }finally{
 
