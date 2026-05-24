@@ -10,7 +10,14 @@ const router = express.Router();
 // 🔥 REGISTER
 router.post("/register", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, username } = req.body;
+    const cleanUsername = (username || "").trim();
+
+    if (!cleanUsername || cleanUsername.length > 10) {
+      return res.status(400).json({
+        error: "El nombre de usuario debe tener máximo 10 caracteres"
+      });
+    }
 
     const db = await readDB();
 
@@ -20,10 +27,19 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "El correo ya existe" });
     }
 
+    const existingUsername = db.users.find(u =>
+      (u.username || "").toLowerCase() === cleanUsername.toLowerCase()
+    );
+
+    if (existingUsername) {
+      return res.status(400).json({ error: "Ese nombre de usuario ya existe" });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = {
       id: db.users.length + 1,
+      username: cleanUsername,
       email,
       password: hashedPassword,
       created_at: new Date().toISOString()
@@ -72,6 +88,7 @@ router.post("/login", async (req, res) => {
       {
         userId: user.id,
         email: user.email,
+        username: user.username || null,
         isPremium: !!subscription,
         premiumExpiresAt: subscription ? subscription.expiresAt : null
       },
@@ -101,6 +118,7 @@ router.get("/me", authMiddlewares, async (req, res) => {
     res.json({
       user: {
         id: user.id,
+        username: user.username || null,
         email: user.email
       },
       subscription: subscription

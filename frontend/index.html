@@ -660,6 +660,14 @@ body{
 <p>Inteligencia Artificial para litigación penal.</p>
 
    <input
+  type="text"
+  id="username"
+  placeholder="Usuario (máx. 10 caracteres)"
+  maxlength="10"
+  style="display:none"
+>
+
+   <input
   type="email"
   id="email"
   placeholder="Correo"
@@ -870,12 +878,14 @@ function toggleAuthMode(){
   const button = document.getElementById("authButton");
   const toggleText = document.getElementById("authToggleText");
   const toggleButton = document.getElementById("authToggleButton");
+  const usernameInput = document.getElementById("username");
 
   if(authMode === "register"){
 
     button.innerText = "Crear cuenta";
     toggleText.innerText = "¿Ya tienes cuenta?";
     toggleButton.innerText = "Ingresar";
+    usernameInput.style.display = "block";
     return;
 
   }
@@ -883,6 +893,7 @@ function toggleAuthMode(){
   button.innerText = "Ingresar";
   toggleText.innerText = "¿No tienes cuenta?";
   toggleButton.innerText = "Crear cuenta";
+  usernameInput.style.display = "none";
 
 }
 
@@ -1001,19 +1012,19 @@ function formatDate(dateValue){
 
 }
 
-function getDisplayName(email){
+function getDisplayName(username,email){
 
-  const name = (email || "Usuario").split("@")[0];
+  const name = username || (email || "Usuario").split("@")[0];
 
-  if(name.length <= 16) return name;
+  if(name.length <= 10) return name;
 
-  return name.substring(0,15) + "...";
+  return name.substring(0,10);
 
 }
 
-function getInitial(email){
+function getInitial(username,email){
 
-  return (email || "U").trim().charAt(0).toUpperCase();
+  return (username || email || "U").trim().charAt(0).toUpperCase();
 
 }
 
@@ -1040,10 +1051,11 @@ async function loadProfile(){
 
     const data = await res.json();
     const email = data.user?.email || "Usuario";
+    const username = data.user?.username || "";
     const subscription = data.subscription;
 
-    document.getElementById("accountAvatar").innerText = getInitial(email);
-    document.getElementById("accountName").innerText = getDisplayName(email);
+    document.getElementById("accountAvatar").innerText = getInitial(username,email);
+    document.getElementById("accountName").innerText = getDisplayName(username,email);
     document.getElementById("accountEmail").innerText = email;
 
     if(subscription){
@@ -1077,6 +1089,7 @@ function logout(){
 
   document.getElementById("app").style.display = "none";
   document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("username").value = "";
   document.getElementById("email").value = "";
   document.getElementById("password").value = "";
 
@@ -1271,12 +1284,20 @@ function addMessageToConversation(conversationId,text,type){
 
 async function register(){
 
+  const username = document.getElementById("username").value.trim();
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  if(!email || !password){
+  if(!username || !email || !password){
 
-    alert("Escribe correo y contraseña para crear tu cuenta.");
+    alert("Escribe usuario, correo y contraseña para crear tu cuenta.");
+    return;
+
+  }
+
+  if(username.length > 10){
+
+    alert("El usuario debe tener máximo 10 caracteres.");
     return;
 
   }
@@ -1291,6 +1312,7 @@ async function register(){
           "Content-Type":"application/json"
         },
         body:JSON.stringify({
+          username,
           email,
           password
         })
