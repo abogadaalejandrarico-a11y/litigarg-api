@@ -735,6 +735,11 @@ body{
   background:#FFD966 !important;
 }
 
+.mobile-menu-button,
+.mobile-sidebar-backdrop{
+  display:none;
+}
+
 @media (max-width: 900px){
   .sidebar{
     width:220px;
@@ -768,69 +773,103 @@ body{
   }
 
   .app{
-    flex-direction:column;
+    position:relative;
   }
 
   .sidebar{
-    width:100%;
-    height:auto;
-    min-height:86px;
-    flex-direction:row;
+    position:fixed;
+    inset:0 auto 0 0;
+    width:280px;
+    height:100vh;
+    z-index:1200;
+    transform:translateX(-100%);
+    transition:transform 0.22s ease;
+    box-shadow:18px 0 60px rgba(0,0,0,0.55);
+  }
+
+  .sidebar.open{
+    transform:translateX(0);
+  }
+
+  .mobile-sidebar-backdrop{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.58);
+    z-index:1100;
+  }
+
+  .mobile-sidebar-backdrop.open{
+    display:block;
+  }
+
+  .mobile-menu-button{
+    width:38px;
+    min-width:38px;
+    height:38px;
+    padding:0;
+    display:flex;
     align-items:center;
-    gap:8px;
-    border-right:none;
-    border-bottom:1px solid rgba(255,255,255,0.05);
-    padding:10px;
+    justify-content:center;
+    border:none;
+    border-radius:10px;
+    background:#171717;
+    color:white;
+    font-size:22px;
+    cursor:pointer;
   }
 
   .logo{
-    width:92px;
-    min-width:92px;
-    padding:0;
-    border-bottom:none;
+    padding:22px 18px;
+    border-bottom:1px solid rgba(255,255,255,0.05);
   }
 
   .logo-img{
-    max-width:92px;
+    max-width:180px;
   }
 
   .new-chat{
-    margin:0;
-    width:92px;
-    min-width:92px;
-    padding:10px 8px;
+    margin:16px 14px 8px 14px;
+    width:calc(100% - 28px);
+    padding:13px;
     border-radius:12px;
-    font-size:13px;
-    line-height:1.15;
+    font-size:15px;
+    line-height:1.2;
   }
 
   .chats{
-    display:none;
+    display:block;
+    padding:8px 10px;
   }
 
   .sidebar-footer{
-    margin-left:auto;
-    margin-top:0;
-    border-top:none;
+    margin-top:auto;
+    border-top:1px solid rgba(255,255,255,0.05);
   }
 
   .premium-button{
-    width:92px;
-    margin:0;
-    padding:10px 8px;
+    width:calc(100% - 32px);
+    margin:16px;
+    padding:13px;
     border-radius:12px;
-    font-size:13px;
-    line-height:1.15;
+    font-size:15px;
+    line-height:1.2;
   }
 
   .main{
+    width:100%;
     min-height:0;
     flex:1;
   }
 
   .header{
-    padding:12px 14px;
+    min-height:82px;
+    padding:10px 12px;
     gap:10px;
+  }
+
+  .header-title{
+    flex:1;
   }
 
   .header h2{
@@ -865,18 +904,20 @@ body{
   }
 
   .messages{
-    padding:18px 14px;
+    padding:16px 14px;
+    padding-bottom:88px;
     gap:14px;
   }
 
   .welcome{
     width:100%;
     max-width:none;
-    margin:auto 0;
+    margin:0;
+    padding-top:28px;
   }
 
   .welcome h1{
-    font-size:26px;
+    font-size:24px;
     line-height:1.12;
     margin-bottom:10px;
   }
@@ -907,7 +948,13 @@ body{
   }
 
   .input-container{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:900;
     padding:10px;
+    padding-bottom:calc(10px + env(safe-area-inset-bottom));
   }
 
   .input-box{
@@ -1000,6 +1047,8 @@ body{
 
 <div class="app" id="app">
 
+  <div class="mobile-sidebar-backdrop" id="mobileSidebarBackdrop" onclick="closeMobileSidebar()"></div>
+
   <!-- SIDEBAR -->
 
   <div class="sidebar">
@@ -1033,6 +1082,7 @@ body{
   <div class="main">
 
     <div class="header">
+      <button class="mobile-menu-button" onclick="toggleMobileSidebar()" title="Abrir chats">☰</button>
       <div class="header-title">
         <h2>Asistente de litigación penal</h2>
         <p>Estrategia, argumentación y técnica de litigación penal.</p>
@@ -1428,6 +1478,20 @@ function toggleAccountMenu(){
 
 }
 
+function toggleMobileSidebar(){
+
+  document.querySelector(".sidebar").classList.toggle("open");
+  document.getElementById("mobileSidebarBackdrop").classList.toggle("open");
+
+}
+
+function closeMobileSidebar(){
+
+  document.querySelector(".sidebar").classList.remove("open");
+  document.getElementById("mobileSidebarBackdrop").classList.remove("open");
+
+}
+
 async function loadProfile(){
 
   try{
@@ -1601,6 +1665,7 @@ function logout(){
   currentConversation = null;
   document.getElementById("accountMenu").classList.remove("open");
   document.getElementById("accountModal").style.display = "none";
+  closeMobileSidebar();
 
   document.getElementById("app").style.display = "none";
   document.getElementById("loginScreen").style.display = "flex";
@@ -1719,6 +1784,7 @@ function startNewChat(){
   currentConversation = null;
   document.getElementById("msgInput").value = "";
   showWelcome();
+  closeMobileSidebar();
 
 }
 
@@ -1743,6 +1809,7 @@ function renderConversations(){
       currentConversation = conv;
 
       loadConversation();
+      closeMobileSidebar();
 
     };
 
