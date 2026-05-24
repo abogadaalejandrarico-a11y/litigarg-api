@@ -226,7 +226,7 @@ body{
 }
 
 .header h2{
-  font-size:24px;
+  font-size:21px;
 }
 
 .header p{
@@ -280,14 +280,18 @@ body{
 }
 
 .file-button{
-  width:54px;
+  width:46px;
+  min-width:46px;
   border:none;
   border-radius:14px;
   background:#1A1A1A;
   color:white;
-  font-size:22px;
+  font-size:19px;
   cursor:pointer;
   border:1px solid rgba(255,255,255,0.06);
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 .file-button:hover{
@@ -363,15 +367,15 @@ body{
 }
 
 .welcome h1{
-  font-size:48px;
+  font-size:36px;
   margin-bottom:15px;
   font-weight:700;
 }
 
 .welcome p{
   color:#9CA3AF;
-  margin-bottom:45px;
-  font-size:18px;
+  margin-bottom:32px;
+  font-size:16px;
 }
 
 .welcome-grid{
@@ -382,18 +386,45 @@ body{
 
 .welcome-card{
   background:#151515;
-  padding:28px;
+  padding:22px;
   border-radius:20px;
   border:1px solid rgba(255,255,255,0.05);
   transition:0.25s;
   cursor:pointer;
-  font-size:17px;
+  font-size:15px;
 }
 
 .welcome-card:hover{
   border-color:#B30000;
   transform:translateY(-3px);
   background:#1A1A1A;
+}
+
+@media (max-width: 900px){
+  .sidebar{
+    width:240px;
+  }
+
+  .header{
+    padding:20px 28px;
+  }
+
+  .messages{
+    padding:28px;
+  }
+
+  .welcome h1{
+    font-size:30px;
+  }
+
+  .welcome-grid{
+    grid-template-columns:1fr;
+  }
+
+  .message{
+    max-width:88%;
+    font-size:14px;
+  }
 }
 
 </style>
@@ -538,7 +569,7 @@ body{
         >
 
         <button class="file-button" onclick="document.getElementById('fileInput').click()" title="Subir documento">
-          +
+          &#128206;
         </button>
 
         <input
