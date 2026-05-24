@@ -279,6 +279,21 @@ body{
   gap:15px;
 }
 
+.file-button{
+  width:54px;
+  border:none;
+  border-radius:14px;
+  background:#1A1A1A;
+  color:white;
+  font-size:22px;
+  cursor:pointer;
+  border:1px solid rgba(255,255,255,0.06);
+}
+
+.file-button:hover{
+  background:#262626;
+}
+
 .input-box input{
   flex:1;
   padding:18px;
@@ -441,7 +456,7 @@ body{
 
 </div>
 
-    <button class="new-chat">
+    <button class="new-chat" onclick="startNewChat()">
       + Nuevo chat
     </button>
 
@@ -513,6 +528,18 @@ body{
     <div class="input-container">
 
       <div class="input-box">
+
+        <input
+          type="file"
+          id="fileInput"
+          accept=".pdf,.docx,.txt,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          style="display:none"
+          onchange="analyzeSelectedFile()"
+        >
+
+        <button class="file-button" onclick="document.getElementById('fileInput').click()" title="Subir documento">
+          +
+        </button>
 
         <input
           type="text"
@@ -705,6 +732,41 @@ function createConversation(firstMessage){
   currentConversation = conversation;
 
   renderConversations();
+
+}
+
+function showWelcome(){
+
+  const messages = document.getElementById("messages");
+
+  messages.innerHTML = `
+  <div class="welcome" id="welcome">
+    <h1>¿Cómo puedo ayudarte hoy?</h1>
+    <p>LitigARG puede ayudarte en:</p>
+    <div class="welcome-grid">
+      <div class="welcome-card" onclick="setPrompt('Prepara un argumento jurídico utilizando las técnicas de hipnosis conversacional y de LitigARG, acerca de ')">
+        Preparar un argumento jurídico
+      </div>
+      <div class="welcome-card" onclick="setPrompt('Analiza los siguientes elementos y realiza un interrogatorio y contrainterrogatorio estratégico para la defensa de ')">
+        Interrogatorio y contrainterrogatorio
+      </div>
+      <div class="welcome-card" onclick="setPrompt('Realiza un estudio detallado del siguiente caso penal ')">
+        Estudio de caso
+      </div>
+      <div class="welcome-card" onclick="setPrompt('Analiza los siguientes elementos materiales probatorios y haz un resumen de la información, identifica puntos críticos para la defensa y realiza estrategias defensivas ')">
+        Análisis de EMP
+      </div>
+    </div>
+  </div>
+  `;
+
+}
+
+function startNewChat(){
+
+  currentConversation = null;
+  document.getElementById("msgInput").value = "";
+  showWelcome();
 
 }
 
@@ -949,6 +1011,107 @@ currentConversation.messages.push({
       "Error de conexión con LitigARG",
       "bot"
     );
+
+  }
+
+}
+
+async function analyzeSelectedFile(){
+
+  const fileInput = document.getElementById("fileInput");
+  const file = fileInput.files[0];
+
+  if(!file) return;
+
+  if(!currentConversation){
+
+    createConversation("Análisis de " + file.name);
+
+  }
+
+  addMessage("Documento adjunto: " + file.name, "user");
+
+  currentConversation.messages.push({
+    text:"Documento adjunto: " + file.name,
+    type:"user"
+  });
+
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.id = "typing";
+  typing.innerText = "LitigARG está leyendo el documento...";
+
+  document
+    .getElementById("messages")
+    .appendChild(typing);
+
+  typing.scrollIntoView({
+    behavior:"smooth"
+  });
+
+  try{
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append(
+      "prompt",
+      "Analiza este documento desde la defensa penal. Identifica hechos relevantes, debilidades probatorias, riesgos, oportunidades de contradiccion, posibles argumentos y preguntas utiles para audiencia."
+    );
+
+    const res = await fetch(
+      API_URL + "/api/gpt/analyze-file",
+      {
+        method:"POST",
+        headers:{
+          "Authorization":"Bearer " + token
+        },
+        body:formData
+      }
+    );
+
+    const data = await res.json();
+
+    document.getElementById("typing")?.remove();
+
+    if(res.status === 403){
+
+      const premiumMessage =
+        data.code === "FREE_LIMIT_REACHED"
+          ? "Ya usaste tus preguntas gratis. Para seguir analizando documentos, activa Premium."
+          : data.error || "Necesitas activar Premium para analizar documentos.";
+
+      typeMessage(premiumMessage + "\n\nUsa el botón Activar Premium en la barra izquierda para continuar.");
+
+      currentConversation.messages.push({
+        text:premiumMessage,
+        type:"bot"
+      });
+
+      return;
+
+    }
+
+    typeMessage(data.answer || data.error || "No pude analizar el documento.");
+
+    currentConversation.messages.push({
+      text:data.answer || data.error || "No pude analizar el documento.",
+      type:"bot"
+    });
+
+  }catch(error){
+
+    console.error(error);
+
+    document.getElementById("typing")?.remove();
+
+    addMessage(
+      "Error de conexión analizando el documento",
+      "bot"
+    );
+
+  }finally{
+
+    fileInput.value = "";
 
   }
 

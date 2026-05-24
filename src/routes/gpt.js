@@ -1,10 +1,43 @@
 import express from "express";
+import multer from "multer";
 import authMiddlewares from "../middlewares/auth.js";
 import { isPremiumActive } from "../services/subscription.js";
 import { getFreeUsage, incrementFreeUsage } from "../services/usage.js";
+import { extractDocumentText } from "../services/documentText.js";
 import { generarRespuestaLegal } from "../services/openai.js";
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 12 * 1024 * 1024
+  }
+});
+
+async function checkAccess(userId) {
+  const premium = await isPremiumActive(userId);
+  const freeUsage = await getFreeUsage(userId);
+
+  if (!premium && freeUsage.remaining <= 0) {
+    return {
+      allowed: false,
+      premium,
+      freeUsage
+    };
+  }
+
+  return {
+    allowed: true,
+    premium,
+    freeUsage
+  };
+}
+
+async function finishUsage(userId, premium, freeUsage) {
+  return premium
+    ? freeUsage
+    : await incrementFreeUsage(userId);
+}
 
 router.post("/chat", authMiddlewares, async (req, res) => {
   try {
@@ -16,31 +49,74 @@ router.post("/chat", authMiddlewares, async (req, res) => {
 
     const userId = req.user.userId;
 
-    const premium = await isPremiumActive(userId);
-    const freeUsage = await getFreeUsage(userId);
+    const access = await checkAccess(userId);
 
-    if (!premium && freeUsage.remaining <= 0) {
+    if (!access.allowed) {
       return res.status(403).json({
         code: "FREE_LIMIT_REACHED",
         error: "Ya usaste tus preguntas gratis. Activa Premium para seguir usando LitigARG.",
-        freeUsage
+        freeUsage: access.freeUsage
       });
     }
 
     const respuesta = await generarRespuestaLegal(message);
-    const updatedFreeUsage = premium
-      ? freeUsage
-      : await incrementFreeUsage(userId);
+    const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 
     res.json({
       answer: respuesta,
-      isPremium: premium,
+      isPremium: access.premium,
       freeUsage: updatedFreeUsage
     });
 
   } catch (error) {
     console.error("ERROR OPENAI:", error);
     res.status(500).json({ error: "Error con OpenAI" });
+  }
+});
+
+router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigacion penal y argumentacion juridica.";
+    const access = await checkAccess(userId);
+
+    if (!access.allowed) {
+      return res.status(403).json({
+        code: "FREE_LIMIT_REACHED",
+        error: "Ya usaste tus preguntas gratis. Activa Premium para analizar documentos.",
+        freeUsage: access.freeUsage
+      });
+    }
+
+    const documentText = await extractDocumentText(req.file);
+
+    if (!documentText) {
+      return res.status(400).json({ error: "No pude extraer texto del documento." });
+    }
+
+    const message = `
+${prompt}
+
+Nombre del archivo: ${req.file.originalname}
+
+Contenido del documento:
+${documentText}
+    `.trim();
+
+    const respuesta = await generarRespuestaLegal(message);
+    const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
+
+    res.json({
+      answer: respuesta,
+      fileName: req.file.originalname,
+      isPremium: access.premium,
+      freeUsage: updatedFreeUsage
+    });
+  } catch (error) {
+    console.error("ERROR ANALIZANDO ARCHIVO:", error);
+    res.status(500).json({
+      error: error.message || "Error analizando archivo"
+    });
   }
 });
 
