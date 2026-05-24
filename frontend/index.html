@@ -665,6 +665,23 @@ body{
   gap:8px;
 }
 
+.username-display{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.icon-button{
+  width:38px;
+  height:38px;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+}
+
 .account-edit input{
   flex:1;
   min-width:0;
@@ -690,6 +707,15 @@ body{
   margin-top:10px;
 }
 
+.username-form{
+  display:none;
+  margin-top:10px;
+}
+
+.username-form.open{
+  display:flex;
+}
+
 .password-form{
   display:none;
   margin-top:10px;
@@ -697,6 +723,16 @@ body{
 
 .password-form.open{
   display:flex;
+}
+
+.premium-action{
+  margin-top:10px;
+  background:#F5C542 !important;
+  color:#111111 !important;
+}
+
+.premium-action:hover{
+  background:#FFD966 !important;
 }
 
 @media (max-width: 900px){
@@ -945,7 +981,11 @@ body{
     <div class="account-detail">
       <div class="account-row">
         <label>Nombre de usuario</label>
-        <div class="account-edit">
+        <div class="username-display">
+          <strong id="profileUsernameText">Usuario</strong>
+          <button class="icon-button" onclick="toggleUsernameForm()" title="Editar usuario">✎</button>
+        </div>
+        <div class="account-edit username-form" id="usernameForm">
           <input type="text" id="profileUsername" maxlength="10">
           <button onclick="updateUsername()">Guardar</button>
         </div>
@@ -970,7 +1010,7 @@ body{
       <div class="account-row">
         <label>Plan</label>
         <strong id="profilePlan">Experiencia gratuita</strong>
-        <button onclick="closeAccountDetails(); openPremiumModal()">Cambiar a Premium</button>
+        <button class="premium-action" onclick="closeAccountDetails(); openPremiumModal()">Cambiar a Premium</button>
       </div>
     </div>
 
@@ -1132,7 +1172,9 @@ function closePremiumModal(){
 function openAccountDetails(){
 
   document.getElementById("accountMenu").classList.remove("open");
+  document.getElementById("profileUsernameText").innerText = profileState.username;
   document.getElementById("profileUsername").value = profileState.username;
+  document.getElementById("usernameForm").classList.remove("open");
   document.getElementById("profileEmail").innerText = profileState.email || "Usuario";
   document.getElementById("profilePlan").innerText =
     profileState.expiresAt
@@ -1145,6 +1187,12 @@ function openAccountDetails(){
 function closeAccountDetails(){
 
   document.getElementById("accountModal").style.display = "none";
+
+}
+
+function toggleUsernameForm(){
+
+  document.getElementById("usernameForm").classList.toggle("open");
 
 }
 
@@ -1288,6 +1336,7 @@ async function updateUsername(){
     await loadProfile();
     alert("Nombre de usuario actualizado.");
     openAccountDetails();
+    document.getElementById("usernameForm").classList.remove("open");
 
   }catch(error){
 
