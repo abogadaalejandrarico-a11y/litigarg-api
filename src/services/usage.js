@@ -1,6 +1,6 @@
 import { readDB, writeDB } from "../db/db.js";
 
-export const FREE_MESSAGE_LIMIT = 3;
+export const FREE_MESSAGE_LIMIT = 5;
 
 export async function getFreeUsage(userId) {
   const db = await readDB();
