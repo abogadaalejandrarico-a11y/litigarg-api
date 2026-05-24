@@ -858,14 +858,21 @@ body{
 
   .main{
     width:100%;
+    height:100dvh;
     min-height:0;
     flex:1;
   }
 
   .header{
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    z-index:950;
     min-height:82px;
     padding:10px 12px;
     gap:10px;
+    background:#0A0A0A;
   }
 
   .header-title{
@@ -904,8 +911,13 @@ body{
   }
 
   .messages{
+    position:fixed;
+    top:82px;
+    left:0;
+    right:0;
+    bottom:72px;
+    overflow-y:auto;
     padding:16px 14px;
-    padding-bottom:88px;
     gap:14px;
   }
 
