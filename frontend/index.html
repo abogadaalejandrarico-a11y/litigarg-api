@@ -185,6 +185,17 @@ body{
   cursor:not-allowed;
 }
 
+.plan-select{
+  width:calc(100% - 40px);
+  margin:16px 20px 0 20px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:#1A1A1A;
+  color:white;
+  font-size:13px;
+}
+
 .chats{
   padding:8px 10px;
   overflow-y:auto;
@@ -518,6 +529,10 @@ body{
     <div class="chats" id="chatList"></div>
 
     <div class="sidebar-footer">
+      <select class="plan-select" id="planSelect">
+        <option value="premium_mensual">Mensual - $20.900</option>
+        <option value="premium_anual">Anual - $209.000</option>
+      </select>
       <button class="premium-button" id="premiumButton" onclick="activatePremium()">
         Activar Premium
       </button>
@@ -730,6 +745,8 @@ async function activatePremium(){
 
   try{
 
+    const selectedPlan = document.getElementById("planSelect").value;
+
     const res = await fetch(
       API_URL + "/api/payments/create",
       {
@@ -739,7 +756,7 @@ async function activatePremium(){
         },
         body:JSON.stringify({
           userId:user.userId,
-          plan:"premium_mensual"
+          plan:selectedPlan
         })
       }
     );
