@@ -15,11 +15,13 @@ router.post("/chat", authMiddlewares, async (req, res) => {
 
     const userId = req.user.userId;
 
-    const premium = await isPremiumActive(userId);
+    // const premium = await isPremiumActive(userId);
 
-    if (!premium) {
-      return res.status(403).json({ error: "No tienes suscripción activa" });
-    }
+// if (!premium) {
+//   return res.status(403).json({
+//     error: "No tienes suscripción activa"
+//   });
+// }
 
     const respuesta = await generarRespuestaLegal(message);
 
