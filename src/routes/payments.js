@@ -8,11 +8,11 @@ const router = express.Router();
 
 const plans = {
   premium_mensual: {
-    price: 49000,
+    price: 20900,
     title: "LitigARG Premium Mensual"
   },
   premium_anual: {
-    price: 490000,
+    price: 209000,
     title: "LitigARG Premium Anual"
   }
 };
