@@ -1,35 +1,41 @@
 import express from "express";
-import { readDB, writeDB } from "../db/db.js";
+import { readDB } from "../db/db.js";
+import { activatePremiumSubscription } from "../services/subscription.js";
 
 const router = express.Router();
 
-router.post("/activate-premium", async (req, res) => {
+function verifyAdmin(req, res, next) {
+  const adminSecret = process.env.ADMIN_SECRET;
+  const requestSecret = req.headers["x-admin-secret"];
+
+  if (!adminSecret || requestSecret !== adminSecret) {
+    return res.status(401).json({ error: "No autorizado" });
+  }
+
+  next();
+}
+
+router.post("/activate-premium", verifyAdmin, async (req, res) => {
   const { userId, plan } = req.body;
 
   if (!userId || !plan) {
     return res.status(400).json({ error: "Faltan datos" });
   }
 
-  let days = 30;
-  if (plan === "premium_anual") days = 365;
-
-  const expires = new Date();
-  expires.setDate(expires.getDate() + days);
+  if (!["premium_mensual", "premium_anual"].includes(plan)) {
+    return res.status(400).json({ error: "Plan invalido" });
+  }
 
   const db = await readDB();
+  const user = db.users.find(u => u.id === Number(userId));
 
-  db.subscriptions.push({
-    id: db.subscriptions.length + 1,
-    userId: Number(userId),
-    plan,
-    status: "active",
-    expiresAt: expires.toISOString(),
-    created_at: new Date().toISOString()
-  });
+  if (!user) {
+    return res.status(404).json({ error: "Usuario no encontrado" });
+  }
 
-  await writeDB(db);
+  const subscription = await activatePremiumSubscription(userId, plan, "manual_admin");
 
-  res.json({ message: "Premium activado", expiresAt: expires.toISOString() });
+  res.json({ message: "Premium activado", expiresAt: subscription.expiresAt });
 });
 
 export default router;

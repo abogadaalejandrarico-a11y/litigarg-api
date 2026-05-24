@@ -51,7 +51,10 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Usuario no encontrado" });
     }
 
-    const validPassword = await bcrypt.compare(password, user.password);
+    const passwordHash = user.password || user.password_hash;
+    const validPassword = passwordHash
+      ? await bcrypt.compare(password, passwordHash)
+      : false;
 
     if (!validPassword) {
       return res.status(400).json({ error: "Contraseña incorrecta" });

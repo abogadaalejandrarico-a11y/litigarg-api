@@ -1,27 +1,41 @@
 import express from "express";
 import client from "../services/mercadopago.js";
-import { Preference } from "mercadopago";
+import { Payment, Preference } from "mercadopago";
+import { readDB, writeDB } from "../db/db.js";
+import { activatePremiumSubscription } from "../services/subscription.js";
 
 const router = express.Router();
+
+const plans = {
+  premium_mensual: {
+    price: 49000,
+    title: "Litigarg Premium Mensual"
+  },
+  premium_anual: {
+    price: 490000,
+    title: "Litigarg Premium Anual"
+  }
+};
 
 router.post("/create", async (req, res) => {
   try {
     const { userId, plan } = req.body;
 
-    let price = 0;
-    let title = "";
-
-    if (plan === "premium_mensual") {
-      price = 49000;
-      title = "Litigarg Premium Mensual";
-    } else if (plan === "premium_anual") {
-      price = 490000;
-      title = "Litigarg Premium Anual";
-    } else {
-      return res.status(400).json({ error: "Plan inválido" });
+    if (!userId || !plans[plan]) {
+      return res.status(400).json({ error: "Plan invalido" });
     }
 
+    const db = await readDB();
+    const user = db.users.find(u => u.id === Number(userId));
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const { price, title } = plans[plan];
     const preference = new Preference(client);
+    const apiUrl = process.env.PUBLIC_API_URL || "https://litigarg-api.onrender.com";
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 
     const result = await preference.create({
       body: {
@@ -34,11 +48,13 @@ router.post("/create", async (req, res) => {
           }
         ],
         back_urls: {
-          success: "http://localhost:3000/success",
-          failure: "http://localhost:3000/failure",
-          pending: "http://localhost:3000/pending"
+          success: `${frontendUrl}/success`,
+          failure: `${frontendUrl}/failure`,
+          pending: `${frontendUrl}/pending`
         },
         auto_return: "approved",
+        notification_url: `${apiUrl}/api/payments/webhook`,
+        external_reference: String(userId),
         metadata: {
           userId,
           plan
@@ -50,7 +66,6 @@ router.post("/create", async (req, res) => {
       init_point: result.init_point,
       id: result.id
     });
-
   } catch (error) {
     console.error("ERROR MERCADOPAGO:", error);
 
@@ -62,6 +77,68 @@ router.post("/create", async (req, res) => {
       error: "Error creando preferencia",
       detalle: error.message
     });
+  }
+});
+
+router.post("/webhook", async (req, res) => {
+  try {
+    const paymentId =
+      req.query["data.id"] ||
+      req.query.id ||
+      req.body?.data?.id ||
+      req.body?.id;
+
+    const topic = req.query.topic || req.query.type || req.body?.type;
+
+    if (!paymentId || (topic && topic !== "payment")) {
+      return res.sendStatus(200);
+    }
+
+    const paymentClient = new Payment(client);
+    const payment = await paymentClient.get({ id: paymentId });
+
+    const metadata = payment.metadata || {};
+    const userId = metadata.userId || metadata.user_id || payment.external_reference;
+    const plan = metadata.plan;
+
+    if (!userId || !plans[plan]) {
+      console.error("Pago sin metadata suficiente:", { paymentId, userId, plan });
+      return res.sendStatus(200);
+    }
+
+    const db = await readDB();
+    db.payments = db.payments || [];
+
+    const alreadyProcessed = db.payments.some(p =>
+      String(p.providerPaymentId) === String(payment.id) &&
+      p.status === "approved"
+    );
+
+    if (alreadyProcessed) {
+      return res.sendStatus(200);
+    }
+
+    db.payments.push({
+      id: db.payments.length + 1,
+      provider: "mercadopago",
+      providerPaymentId: payment.id,
+      userId: Number(userId),
+      plan,
+      status: payment.status,
+      amount: payment.transaction_amount,
+      created_at: new Date().toISOString()
+    });
+
+    await writeDB(db);
+
+    if (payment.status === "approved") {
+      await activatePremiumSubscription(userId, plan, payment.id);
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("ERROR WEBHOOK MERCADOPAGO:", error);
+    res.sendStatus(500);
   }
 });
 

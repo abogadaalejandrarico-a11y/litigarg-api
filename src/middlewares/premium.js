@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
+import { isPremiumActive } from "../services/subscription.js";
 
-export default function verificarPremium(req, res, next) {
+export default async function verificarPremium(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
@@ -10,22 +11,16 @@ export default function verificarPremium(req, res, next) {
 
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const premium = await isPremiumActive(decoded.userId);
 
-    // ⚠️ Aquí asumimos que ya tienes esto en tu sistema
-    const { isPremium, premiumExpiresAt } = decoded;
-
-    if (!isPremium) {
-      return res.status(403).json({ error: "No tienes suscripción activa" });
-    }
-
-    if (premiumExpiresAt && new Date(premiumExpiresAt) < new Date()) {
-      return res.status(403).json({ error: "Tu suscripción ha expirado" });
+    if (!premium) {
+      return res.status(403).json({ error: "No tienes suscripcion activa" });
     }
 
     req.user = decoded;
 
     next();
   } catch (error) {
-    return res.status(401).json({ error: "Token inválido" });
+    return res.status(401).json({ error: "Token invalido" });
   }
 }
