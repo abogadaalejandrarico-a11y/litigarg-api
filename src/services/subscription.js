@@ -6,15 +6,23 @@ export function getPlanDays(plan) {
 }
 
 export async function isPremiumActive(userId) {
-  const db = await readDB();
-
-  const sub = (db.subscriptions || [])
-    .filter(s => Number(s.userId) === Number(userId) && s.status === "active")
-    .sort((a, b) => new Date(b.expiresAt) - new Date(a.expiresAt))[0];
+  const sub = await getActiveSubscription(userId);
 
   if (!sub) return false;
 
   return new Date(sub.expiresAt) > new Date();
+}
+
+export async function getActiveSubscription(userId) {
+  const db = await readDB();
+
+  return (db.subscriptions || [])
+    .filter(s =>
+      Number(s.userId) === Number(userId) &&
+      s.status === "active" &&
+      new Date(s.expiresAt) > new Date()
+    )
+    .sort((a, b) => new Date(b.expiresAt) - new Date(a.expiresAt))[0] || null;
 }
 
 export async function activatePremiumSubscription(userId, plan, paymentId = null) {

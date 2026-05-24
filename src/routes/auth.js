@@ -2,6 +2,8 @@ import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { readDB, writeDB } from "../db/db.js";
+import authMiddlewares from "../middlewares/auth.js";
+import { getActiveSubscription } from "../services/subscription.js";
 
 const router = express.Router();
 
@@ -82,6 +84,36 @@ router.post("/login", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error en login" });
+  }
+});
+
+router.get("/me", authMiddlewares, async (req, res) => {
+  try {
+    const db = await readDB();
+    const user = db.users.find(u => Number(u.id) === Number(req.user.userId));
+
+    if (!user) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const subscription = await getActiveSubscription(user.id);
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email
+      },
+      subscription: subscription
+        ? {
+            plan: subscription.plan,
+            status: subscription.status,
+            expiresAt: subscription.expiresAt
+          }
+        : null
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error consultando perfil" });
   }
 });
 
