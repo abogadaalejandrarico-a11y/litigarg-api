@@ -5,6 +5,7 @@ import { isPremiumActive } from "../services/subscription.js";
 import { getFreeUsage, incrementFreeUsage } from "../services/usage.js";
 import { extractDocumentText } from "../services/documentText.js";
 import { generarRespuestaLegal } from "../services/openai.js";
+import { readDB } from "../db/db.js";
 
 const router = express.Router();
 const upload = multer({
@@ -39,6 +40,13 @@ async function finishUsage(userId, premium, freeUsage) {
     : await incrementFreeUsage(userId);
 }
 
+async function getUserName(userId) {
+  const db = await readDB();
+  const user = (db.users || []).find(item => Number(item.id) === Number(userId));
+
+  return user?.username || user?.email?.split("@")[0] || "";
+}
+
 router.post("/chat", authMiddlewares, async (req, res) => {
   try {
     const { message } = req.body;
@@ -59,7 +67,8 @@ router.post("/chat", authMiddlewares, async (req, res) => {
       });
     }
 
-    const respuesta = await generarRespuestaLegal(message);
+    const userName = await getUserName(userId);
+    const respuesta = await generarRespuestaLegal(message, { userName });
     const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 
     res.json({
@@ -103,7 +112,8 @@ Contenido del documento:
 ${documentText}
     `.trim();
 
-    const respuesta = await generarRespuestaLegal(message);
+    const userName = await getUserName(userId);
+    const respuesta = await generarRespuestaLegal(message, { userName });
     const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 
     res.json({

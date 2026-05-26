@@ -7,7 +7,12 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-export async function generarRespuestaLegal(mensaje) {
+export async function generarRespuestaLegal(mensaje, options = {}) {
+  const userName = (options.userName || "").trim();
+  const userContext = userName
+    ? `\n\nUsuario actual: ${userName}. Trátalo por ese nombre de forma natural cuando expliques lo que vas a hacer, lo que encontraste o cómo organizarás la respuesta. No repitas su nombre en cada párrafo; úsalo solo cuando aporte cercanía y claridad.`
+    : "";
+
   const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
@@ -62,6 +67,7 @@ Formato de respuesta:
 - Evita entregar bloques largos sin separación visual.
 - No mezcles símbolos innecesarios ni encabezados repetitivos.
 - Si analizas documentos, organiza la respuesta en secciones como: HECHOS RELEVANTES, PROBLEMAS JURÍDICOS, RIESGOS, OPORTUNIDADES DE DEFENSA, ESTRATEGIA y PREGUNTAS ÚTILES.
+${userContext}
         `
       },
       {
