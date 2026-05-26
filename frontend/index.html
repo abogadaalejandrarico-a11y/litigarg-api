@@ -816,7 +816,8 @@ body{
     position:fixed;
     inset:0 auto 0 0;
     width:280px;
-    height:100vh;
+    height:100dvh;
+    max-height:100dvh;
     z-index:1200;
     transform:translateX(-100%);
     transition:transform 0.22s ease;
@@ -876,11 +877,26 @@ body{
   .chats{
     display:block;
     padding:8px 10px;
+    min-height:0;
+    overflow-y:auto;
   }
 
+  .chat-actions{
+    display:flex;
+  }
+
+  .chat-action{
+    width:30px;
+    height:30px;
+  }
+	
   .sidebar-footer{
     margin-top:auto;
     border-top:1px solid rgba(255,255,255,0.05);
+    position:sticky;
+    bottom:0;
+    background:#111111;
+    padding-bottom:env(safe-area-inset-bottom);
   }
 
   .premium-button{
