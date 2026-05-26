@@ -2160,7 +2160,7 @@ function findConversation(conversationId){
 
 }
 
-function addMessageToConversation(conversationId,text,type){
+function addMessageToConversation(conversationId,text,type,options = {}){
 
   const conversation = findConversation(conversationId);
 
@@ -2175,7 +2175,7 @@ function addMessageToConversation(conversationId,text,type){
 
   if(currentConversation?.id === conversationId){
 
-    addMessage(text,type);
+    addMessage(text,type,options);
 
   }
 
@@ -2440,13 +2440,13 @@ if(res.status === 403){
       ? "Se acabó tu límite de uso gratuito. Para seguir disfrutando de LitigARG, debes adquirir la experiencia Premium o esperar 24 horas para acceder nuevamente al uso gratuito limitado.\n\nPresiona el botón Activar Premium para continuar con tu asistente de litigación penal LitigARG."
       : data.error || "Necesitas activar Premium para usar esta función.";
 
-  addMessageToConversation(conversationId,premiumMessage,"bot");
+  addMessageToConversation(conversationId,premiumMessage,"bot",{animate:true});
 
   return;
 
 }
 
-addMessageToConversation(conversationId,data.answer || data.error || "Error","bot");
+addMessageToConversation(conversationId,data.answer || data.error || "Error","bot",{animate:true});
 
   }catch(error){
 
@@ -2454,7 +2454,7 @@ addMessageToConversation(conversationId,data.answer || data.error || "Error","bo
 
     document.getElementById("typing")?.remove();
 
-    addMessageToConversation(conversationId,"Error de conexión con LitigARG","bot");
+    addMessageToConversation(conversationId,"Error de conexión con LitigARG","bot",{animate:true});
 
   }
 
@@ -2521,13 +2521,13 @@ async function analyzeSelectedFile(){
           ? "Se acabó tu límite de uso gratuito. Para seguir disfrutando de LitigARG, debes adquirir la experiencia Premium o esperar 24 horas para acceder nuevamente al uso gratuito limitado.\n\nPresiona el botón Activar Premium para continuar con tu asistente de litigación penal LitigARG."
           : data.error || "Necesitas activar Premium para analizar documentos.";
 
-      addMessageToConversation(conversationId,premiumMessage,"bot");
+      addMessageToConversation(conversationId,premiumMessage,"bot",{animate:true});
 
       return;
 
     }
 
-    addMessageToConversation(conversationId,data.answer || data.error || "No pude analizar el documento.","bot");
+    addMessageToConversation(conversationId,data.answer || data.error || "No pude analizar el documento.","bot",{animate:true});
 
   }catch(error){
 
@@ -2535,7 +2535,7 @@ async function analyzeSelectedFile(){
 
     document.getElementById("typing")?.remove();
 
-    addMessageToConversation(conversationId,"Error de conexión analizando el documento","bot");
+    addMessageToConversation(conversationId,"Error de conexión analizando el documento","bot",{animate:true});
 
   }finally{
 
@@ -2638,7 +2638,7 @@ function renderMarkdown(text){
 
 }
 
-function addMessage(text,type){
+function addMessage(text,type,options = {}){
 
   const welcome = document.getElementById("welcome");
 
@@ -2653,7 +2653,11 @@ function addMessage(text,type){
   div.className = "message " + type;
 
   if(type === "bot"){
-    div.innerHTML = renderMarkdown(text);
+    if(options.animate){
+      typeBotMessage(div,text);
+    }else{
+      div.innerHTML = renderMarkdown(text);
+    }
   }else{
     div.innerText = text;
   }
@@ -2668,27 +2672,15 @@ function addMessage(text,type){
 
 }
 
-async function typeMessage(text){
-
-  const div = document.createElement("div");
-
-  div.className = "message bot";
-
-  document
-    .getElementById("messages")
-    .appendChild(div);
-
+function typeBotMessage(div,text){
   let i = 0;
-
-  const speed = 8;
+  const speed = 12;
+  const step = text.length > 1200 ? 4 : 2;
 
   function type(){
-
     if(i < text.length){
-
-      div.innerText += text.charAt(i);
-
-      i++;
+      i = Math.min(i + step,text.length);
+      div.innerHTML = renderMarkdown(text.slice(0,i));
 
       div.scrollIntoView({
         behavior:"smooth"
@@ -2696,8 +2688,10 @@ async function typeMessage(text){
 
       setTimeout(type,speed);
 
+      return;
     }
 
+    div.innerHTML = renderMarkdown(text);
   }
 
   type();

@@ -67,6 +67,8 @@ Formato de respuesta:
 - Evita entregar bloques largos sin separación visual.
 - No mezcles símbolos innecesarios ni encabezados repetitivos.
 - Si analizas documentos, organiza la respuesta en secciones como: HECHOS RELEVANTES, PROBLEMAS JURÍDICOS, RIESGOS, OPORTUNIDADES DE DEFENSA, ESTRATEGIA y PREGUNTAS ÚTILES.
+- Antes de entrar al desarrollo, abre con una frase breve y personalizada que confirme lo que harás o lo que encontraste. Ejemplo: "TEST, revisé el documento y encontré tres puntos que conviene ordenar para la defensa.".
+- Esa apertura debe sentirse conversacional, profesional y cercana; no debe ser larga ni repetir literalmente la pregunta del usuario.
 ${userContext}
         `
       },
