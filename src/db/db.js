@@ -74,10 +74,13 @@ async function ensureSchema() {
       CREATE TABLE IF NOT EXISTS free_usage (
         user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         used INTEGER NOT NULL DEFAULT 0,
+        usage_date TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+
+    await client.query("ALTER TABLE free_usage ADD COLUMN IF NOT EXISTS usage_date TEXT");
 
     await client.query("COMMIT");
     schemaReady = true;
@@ -187,6 +190,7 @@ export async function readDB() {
       freeUsage: freeUsage.rows.map(row => ({
         userId: row.user_id,
         used: row.used,
+        usageDate: row.usage_date,
         created_at: toIso(row.created_at),
         updated_at: toIso(row.updated_at)
       }))
@@ -285,15 +289,17 @@ export async function writeDB(data) {
     for (const usage of data.freeUsage || []) {
       await client.query(
         `
-          INSERT INTO free_usage (user_id, used, created_at, updated_at)
-          VALUES ($1, $2, COALESCE($3::timestamptz, NOW()), COALESCE($4::timestamptz, NOW()))
+          INSERT INTO free_usage (user_id, used, usage_date, created_at, updated_at)
+          VALUES ($1, $2, $3, COALESCE($4::timestamptz, NOW()), COALESCE($5::timestamptz, NOW()))
           ON CONFLICT (user_id) DO UPDATE SET
             used = EXCLUDED.used,
+            usage_date = EXCLUDED.usage_date,
             updated_at = EXCLUDED.updated_at
         `,
         [
           usage.userId,
           usage.used || 0,
+          usage.usageDate || usage.usage_date || null,
           usage.created_at || null,
           usage.updated_at || null
         ]
