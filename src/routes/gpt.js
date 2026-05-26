@@ -54,7 +54,7 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     if (!access.allowed) {
       return res.status(403).json({
         code: "FREE_LIMIT_REACHED",
-        error: "Ya usaste tus 8 preguntas gratuitas de hoy. Activa Premium para seguir usando LitigARG sin esperar a mañana.",
+        error: "Se acabó tu límite de uso gratuito. Para seguir disfrutando de LitigARG, debes adquirir la experiencia Premium o esperar 24 horas para acceder nuevamente al uso gratuito limitado.",
         freeUsage: access.freeUsage
       });
     }
@@ -83,7 +83,7 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
     if (!access.allowed) {
       return res.status(403).json({
         code: "FREE_LIMIT_REACHED",
-        error: "Ya usaste tus 8 preguntas gratuitas de hoy. Activa Premium para analizar documentos sin esperar a mañana.",
+        error: "Se acabó tu límite de uso gratuito. Para seguir disfrutando de LitigARG, debes adquirir la experiencia Premium o esperar 24 horas para acceder nuevamente al uso gratuito limitado.",
         freeUsage: access.freeUsage
       });
     }

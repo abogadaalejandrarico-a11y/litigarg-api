@@ -1255,6 +1255,16 @@ body{
   </div>
 </div>
 
+<div class="modal-overlay" id="freeNoticeModal">
+  <div class="modal">
+    <h3>Experiencia gratuita</h3>
+    <p>Tu experiencia gratuita tiene un límite de uso. Cuando se agote, deberás adquirir la experiencia Premium para seguir disfrutando de LitigARG sin interrupciones.</p>
+
+    <button class="premium-action" onclick="closeFreeNotice(); openPremiumModal()">Ver Premium</button>
+    <button class="modal-close" onclick="closeFreeNotice()">Continuar gratis</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="accountModal">
   <div class="modal">
     <h3>Cuenta</h3>
@@ -1312,6 +1322,7 @@ let token = "";
 
 const API_URL = "https://litigarg-api.onrender.com";
 const TOKEN_STORAGE_KEY = "litigarg_token";
+const FREE_NOTICE_STORAGE_KEY = "litigarg_free_notice_seen";
 
 let authMode = "login";
 
@@ -1458,6 +1469,30 @@ function closePremiumModal(){
 
 }
 
+function showFreeNoticeIfNeeded(){
+
+  const user = getCurrentUser();
+
+  if(!user?.userId || profileState.expiresAt) return;
+
+  const today = new Date().toLocaleDateString("es-CO", {
+    timeZone:"America/Bogota"
+  });
+  const noticeKey = user.userId + ":" + today;
+
+  if(sessionStorage.getItem(FREE_NOTICE_STORAGE_KEY) === noticeKey) return;
+
+  sessionStorage.setItem(FREE_NOTICE_STORAGE_KEY, noticeKey);
+  document.getElementById("freeNoticeModal").style.display = "flex";
+
+}
+
+function closeFreeNotice(){
+
+  document.getElementById("freeNoticeModal").style.display = "none";
+
+}
+
 function openAccountDetails(){
 
   document.getElementById("accountMenu").classList.remove("open");
@@ -1590,11 +1625,12 @@ async function loadProfile(){
 
     }
 
-    document.getElementById("accountPlan").innerText = "Experiencia gratuita";
-    document.getElementById("accountExpiry").innerText =
-      "Plan: experiencia gratuita\nSin vencimiento activo";
-
-  }catch(error){
+	    document.getElementById("accountPlan").innerText = "Experiencia gratuita";
+	    document.getElementById("accountExpiry").innerText =
+	      "Plan: experiencia gratuita\nSin vencimiento activo";
+	    showFreeNoticeIfNeeded();
+	
+	  }catch(error){
 
     console.error(error);
 
@@ -2313,7 +2349,7 @@ if(res.status === 403){
 
   const premiumMessage =
     data.code === "FREE_LIMIT_REACHED"
-      ? "Se agotaron tus 8 preguntas gratuitas de hoy. Mañana tendrás una nueva experiencia gratuita.\n\nSi quieres seguir usando LitigARG ahora, activa tu experiencia Premium. Presiona el botón Activar Premium para continuar con tu asistente de litigación penal LitigARG."
+      ? "Se acabó tu límite de uso gratuito. Para seguir disfrutando de LitigARG, debes adquirir la experiencia Premium o esperar 24 horas para acceder nuevamente al uso gratuito limitado.\n\nPresiona el botón Activar Premium para continuar con tu asistente de litigación penal LitigARG."
       : data.error || "Necesitas activar Premium para usar esta función.";
 
   addMessageToConversation(conversationId,premiumMessage,"bot");
@@ -2394,7 +2430,7 @@ async function analyzeSelectedFile(){
 
       const premiumMessage =
         data.code === "FREE_LIMIT_REACHED"
-          ? "Se agotaron tus 8 preguntas gratuitas de hoy. Mañana tendrás una nueva experiencia gratuita.\n\nSi quieres seguir analizando documentos con LitigARG ahora, activa tu experiencia Premium. Presiona el botón Activar Premium para continuar con tu asistente de litigación penal LitigARG."
+          ? "Se acabó tu límite de uso gratuito. Para seguir disfrutando de LitigARG, debes adquirir la experiencia Premium o esperar 24 horas para acceder nuevamente al uso gratuito limitado.\n\nPresiona el botón Activar Premium para continuar con tu asistente de litigación penal LitigARG."
           : data.error || "Necesitas activar Premium para analizar documentos.";
 
       addMessageToConversation(conversationId,premiumMessage,"bot");
