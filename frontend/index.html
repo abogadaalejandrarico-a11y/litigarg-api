@@ -436,10 +436,10 @@ body{
 
 .message{
   max-width:min(820px, 76%);
-  padding:18px;
+  padding:20px;
   border-radius:18px;
-  line-height:1.7;
-  font-size:15px;
+  line-height:1.75;
+  font-size:16px;
 }
 
 .user{
@@ -456,8 +456,8 @@ body{
   align-self:flex-start;
   display:flex;
   align-items:center;
-  gap:6px;
-  margin:0 0 12px 6px;
+  gap:8px;
+  margin:2px 0 14px 6px;
   color:#A3A3A3;
   font-size:12px;
 }
@@ -466,10 +466,20 @@ body{
   border:none;
   background:transparent;
   color:#A3A3A3;
-  padding:5px 6px;
+  min-width:30px;
+  height:30px;
+  padding:5px 7px;
   border-radius:8px;
   cursor:pointer;
-  font-size:12px;
+  font-size:15px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+
+.message-action.sources-action{
+  font-size:13px;
 }
 
 .message-action:hover,
@@ -504,33 +514,36 @@ body{
 
 .bot h2,
 .bot h3{
-  margin:4px 0 12px 0;
+  margin:10px 0 18px 0;
   color:#FFFFFF;
-  line-height:1.25;
+  line-height:1.32;
+  letter-spacing:0;
 }
 
 .bot h2{
-  font-size:18px;
+  font-size:23px;
   text-transform:uppercase;
+  padding-top:10px;
 }
 
 .bot h3{
-  font-size:16px;
+  font-size:19px;
+  padding-top:8px;
 }
 
 .bot p{
-  margin:0 0 12px 0;
+  margin:0 0 16px 0;
 }
 
 .bot ul,
 .bot ol{
-  margin:0 0 14px 22px;
+  margin:0 0 18px 26px;
   padding:0;
 }
 
 .bot li{
-  margin:7px 0;
-  padding-left:3px;
+  margin:9px 0;
+  padding-left:5px;
 }
 
 .bot strong{
@@ -2726,12 +2739,14 @@ function addBotActions(messageDiv,text,options = {}){
 
   const copyButton = document.createElement("button");
   copyButton.className = "message-action";
-  copyButton.innerText = "Copiar";
+  copyButton.innerHTML = "&#128203;";
+  copyButton.title = "Copiar respuesta";
+  copyButton.setAttribute("aria-label","Copiar respuesta");
   copyButton.onclick = async () => {
     try{
       await navigator.clipboard.writeText(text);
-      copyButton.innerText = "Copiado";
-      setTimeout(() => copyButton.innerText = "Copiar", 1800);
+      copyButton.innerHTML = "&#10003;";
+      setTimeout(() => copyButton.innerHTML = "&#128203;", 1800);
     }catch(error){
       console.error(error);
       alert("No se pudo copiar la respuesta.");
@@ -2740,7 +2755,9 @@ function addBotActions(messageDiv,text,options = {}){
 
   const likeButton = document.createElement("button");
   likeButton.className = "message-action";
-  likeButton.innerText = "Me gusta";
+  likeButton.innerHTML = "&#128077;";
+  likeButton.title = "Me gusta";
+  likeButton.setAttribute("aria-label","Me gusta");
   likeButton.onclick = () => {
     likeButton.classList.toggle("active");
     dislikeButton.classList.remove("active");
@@ -2748,15 +2765,18 @@ function addBotActions(messageDiv,text,options = {}){
 
   const dislikeButton = document.createElement("button");
   dislikeButton.className = "message-action";
-  dislikeButton.innerText = "No me gusta";
+  dislikeButton.innerHTML = "&#128078;";
+  dislikeButton.title = "No me gusta";
+  dislikeButton.setAttribute("aria-label","No me gusta");
   dislikeButton.onclick = () => {
     dislikeButton.classList.toggle("active");
     likeButton.classList.remove("active");
   };
 
   const sourcesButton = document.createElement("button");
-  sourcesButton.className = "message-action";
-  sourcesButton.innerText = "Fuentes";
+  sourcesButton.className = "message-action sources-action";
+  sourcesButton.innerHTML = "&#128214; Fuentes";
+  sourcesButton.title = "Ver fuentes";
 
   const sourcesPanel = document.createElement("div");
   sourcesPanel.className = "sources-panel";
