@@ -7,6 +7,7 @@ import gptRoutes from "./routes/gpt.js";
 import paymentRoutes from "./routes/payments.js";
 import adminRoutes from "./routes/admin.js";
 import contraFiscaliaRoutes from "./routes/contraFiscalia.js";
+import chatRoutes from "./routes/chats.js";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use("/api/gpt", gptRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/gpt/contra-fiscalia", contraFiscaliaRoutes);
+app.use("/api/chats", chatRoutes);
 
 app.get("/", (req, res) => {
   res.sendFile("frontend/index.html", { root: process.cwd() });

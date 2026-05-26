@@ -326,9 +326,11 @@ body{
 }
 
 .chat-item{
+  display:flex;
+  align-items:center;
+  gap:6px;
   padding:8px 10px;
   border-radius:8px;
-  cursor:pointer;
   color:#D1D5DB;
   margin-bottom:4px;
   transition:0.2s;
@@ -341,6 +343,40 @@ body{
 
 .chat-item:hover{
   background:#121826;
+}
+
+.chat-title{
+  flex:1;
+  min-width:0;
+  cursor:pointer;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.chat-actions{
+  display:none;
+  gap:4px;
+}
+
+.chat-item:hover .chat-actions{
+  display:flex;
+}
+
+.chat-action{
+  width:24px;
+  height:24px;
+  border:none;
+  border-radius:6px;
+  background:#202020;
+  color:#D1D5DB;
+  cursor:pointer;
+  font-size:12px;
+}
+
+.chat-action:hover{
+  background:#B30000;
+  color:white;
 }
 
 /* MAIN */
@@ -1258,6 +1294,12 @@ body{
         <strong id="profilePlan">Experiencia gratuita</strong>
         <button class="premium-action" onclick="closeAccountDetails(); openPremiumModal()">Cambiar a Premium</button>
       </div>
+
+      <div class="account-row">
+        <label>Historial</label>
+        <p id="historyPolicy">Gratis guarda los ultimos 5 chats. Premium guarda hasta 100 chats.</p>
+        <button onclick="clearChatHistory()">Borrar historial</button>
+      </div>
     </div>
 
     <button class="modal-close" onclick="closeAccountDetails()">Cerrar</button>
@@ -1378,6 +1420,7 @@ function showApp(){
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "flex";
   loadProfile();
+  loadChatHistory();
 
 }
 
@@ -1559,6 +1602,46 @@ async function loadProfile(){
 
 }
 
+async function loadChatHistory(){
+
+  try{
+
+    const res = await fetch(
+      API_URL + "/api/chats",
+      {
+        headers:{
+          "Authorization":"Bearer " + token
+        }
+      }
+    );
+
+    if(!res.ok) return;
+
+    const data = await res.json();
+
+    conversations = (data.chats || []).map(chat => ({
+      id:chat.id,
+      title:chat.title,
+      messages:(chat.messages || []).map(message => ({
+        text:message.text,
+        type:message.type
+      }))
+    }));
+
+    renderConversations();
+
+    if(currentConversation){
+      currentConversation = conversations.find(conv => conv.id === currentConversation.id) || null;
+    }
+
+  }catch(error){
+
+    console.error(error);
+
+  }
+
+}
+
 async function updateUsername(){
 
   const username = document.getElementById("profileUsername").value.trim();
@@ -1669,6 +1752,45 @@ async function updatePassword(){
 
 }
 
+async function clearChatHistory(){
+
+  if(!confirm("¿Quieres borrar todo tu historial de chats? Esta acción no se puede deshacer.")){
+    return;
+  }
+
+  try{
+
+    const res = await fetch(
+      API_URL + "/api/chats",
+      {
+        method:"DELETE",
+        headers:{
+          "Authorization":"Bearer " + token
+        }
+      }
+    );
+
+    if(!res.ok){
+      const data = await res.json();
+      alert(data.error || "No se pudo borrar el historial.");
+      return;
+    }
+
+    conversations = [];
+    currentConversation = null;
+    renderConversations();
+    showWelcome();
+    closeAccountDetails();
+
+  }catch(error){
+
+    console.error(error);
+    alert("Error de conexión");
+
+  }
+
+}
+
 function logout(){
 
   localStorage.removeItem(TOKEN_STORAGE_KEY);
@@ -1745,7 +1867,7 @@ async function activatePremium(plan){
 
 function createConversation(firstMessage){
 
-  const id = Date.now();
+  const id = "chat_" + Date.now() + "_" + Math.random().toString(36).substring(2,8);
 
   const title =
     firstMessage.substring(0,30) + "...";
@@ -1761,6 +1883,38 @@ function createConversation(firstMessage){
   currentConversation = conversation;
 
   renderConversations();
+
+}
+
+async function saveMessageToServer(conversationId,text,type){
+
+  const conversation = findConversation(conversationId);
+
+  if(!conversation) return;
+
+  try{
+
+    await fetch(
+      API_URL + "/api/chats/" + encodeURIComponent(conversationId) + "/messages",
+      {
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "Authorization":"Bearer " + token
+        },
+        body:JSON.stringify({
+          text,
+          type,
+          title:conversation.title
+        })
+      }
+    );
+
+  }catch(error){
+
+    console.error(error);
+
+  }
 
 }
 
@@ -1814,9 +1968,10 @@ function renderConversations(){
 
     div.className = "chat-item";
 
-    div.innerText = conv.title;
-
-    div.onclick = () => {
+    const title = document.createElement("span");
+    title.className = "chat-title";
+    title.innerText = conv.title;
+    title.onclick = () => {
 
       currentConversation = conv;
 
@@ -1824,6 +1979,32 @@ function renderConversations(){
       closeMobileSidebar();
 
     };
+
+    const actions = document.createElement("span");
+    actions.className = "chat-actions";
+
+    const renameButton = document.createElement("button");
+    renameButton.className = "chat-action";
+    renameButton.innerText = "✎";
+    renameButton.title = "Cambiar nombre";
+    renameButton.onclick = event => {
+      event.stopPropagation();
+      renameConversation(conv.id);
+    };
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "chat-action";
+    deleteButton.innerText = "×";
+    deleteButton.title = "Borrar chat";
+    deleteButton.onclick = event => {
+      event.stopPropagation();
+      deleteConversation(conv.id);
+    };
+
+    actions.appendChild(renameButton);
+    actions.appendChild(deleteButton);
+    div.appendChild(title);
+    div.appendChild(actions);
 
     chatList.appendChild(div);
 
@@ -1866,9 +2047,99 @@ function addMessageToConversation(conversationId,text,type){
     type
   });
 
+  saveMessageToServer(conversationId,text,type);
+
   if(currentConversation?.id === conversationId){
 
     addMessage(text,type);
+
+  }
+
+}
+
+async function renameConversation(conversationId){
+
+  const conversation = findConversation(conversationId);
+
+  if(!conversation) return;
+
+  const title = prompt("Nuevo nombre del chat", conversation.title);
+  const cleanTitle = (title || "").trim();
+
+  if(!cleanTitle) return;
+
+  try{
+
+    const res = await fetch(
+      API_URL + "/api/chats/" + encodeURIComponent(conversationId),
+      {
+        method:"PATCH",
+        headers:{
+          "Content-Type":"application/json",
+          "Authorization":"Bearer " + token
+        },
+        body:JSON.stringify({
+          title:cleanTitle
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    if(!res.ok){
+      alert(data.error || "No se pudo cambiar el nombre.");
+      return;
+    }
+
+    conversation.title = data.chat?.title || cleanTitle;
+    renderConversations();
+
+  }catch(error){
+
+    console.error(error);
+    alert("Error de conexión");
+
+  }
+
+}
+
+async function deleteConversation(conversationId){
+
+  if(!confirm("¿Quieres borrar este chat?")){
+    return;
+  }
+
+  try{
+
+    const res = await fetch(
+      API_URL + "/api/chats/" + encodeURIComponent(conversationId),
+      {
+        method:"DELETE",
+        headers:{
+          "Authorization":"Bearer " + token
+        }
+      }
+    );
+
+    if(!res.ok){
+      const data = await res.json();
+      alert(data.error || "No se pudo borrar el chat.");
+      return;
+    }
+
+    conversations = conversations.filter(conv => conv.id !== conversationId);
+
+    if(currentConversation?.id === conversationId){
+      currentConversation = null;
+      showWelcome();
+    }
+
+    renderConversations();
+
+  }catch(error){
+
+    console.error(error);
+    alert("Error de conexión");
 
   }
 

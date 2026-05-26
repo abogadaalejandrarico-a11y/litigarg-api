@@ -12,6 +12,10 @@ function usePostgres() {
   return Boolean(process.env.DATABASE_URL);
 }
 
+export function isPostgresEnabled() {
+  return usePostgres();
+}
+
 function getPool() {
   if (!pool) {
     pool = new Pool({
@@ -82,6 +86,27 @@ async function ensureSchema() {
 
     await client.query("ALTER TABLE free_usage ADD COLUMN IF NOT EXISTS usage_date TEXT");
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chats (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     await client.query("COMMIT");
     schemaReady = true;
   } catch (error) {
@@ -100,7 +125,7 @@ function toIso(value) {
 async function readJsonDB() {
   const exists = await fs.pathExists(DB_FILE);
   if (!exists) {
-    await fs.writeJson(DB_FILE, { users: [], subscriptions: [], payments: [], freeUsage: [] }, { spaces: 2 });
+    await fs.writeJson(DB_FILE, { users: [], subscriptions: [], payments: [], freeUsage: [], chats: [], chatMessages: [] }, { spaces: 2 });
   }
 
   const db = await fs.readJson(DB_FILE);
@@ -109,6 +134,8 @@ async function readJsonDB() {
   db.subscriptions = db.subscriptions || [];
   db.payments = db.payments || [];
   db.freeUsage = db.freeUsage || [];
+  db.chats = db.chats || [];
+  db.chatMessages = db.chatMessages || [];
 
   return db;
 }
@@ -152,11 +179,13 @@ export async function readDB() {
   const client = await getPool().connect();
 
   try {
-    const [users, subscriptions, payments, freeUsage] = await Promise.all([
+    const [users, subscriptions, payments, freeUsage, chats, chatMessages] = await Promise.all([
       client.query("SELECT * FROM users ORDER BY id"),
       client.query("SELECT * FROM subscriptions ORDER BY id"),
       client.query("SELECT * FROM payments ORDER BY id"),
-      client.query("SELECT * FROM free_usage ORDER BY user_id")
+      client.query("SELECT * FROM free_usage ORDER BY user_id"),
+      client.query("SELECT * FROM chats ORDER BY updated_at DESC"),
+      client.query("SELECT * FROM chat_messages ORDER BY created_at ASC")
     ]);
 
     return {
@@ -193,6 +222,21 @@ export async function readDB() {
         usageDate: row.usage_date,
         created_at: toIso(row.created_at),
         updated_at: toIso(row.updated_at)
+      })),
+      chats: chats.rows.map(row => ({
+        id: row.id,
+        userId: row.user_id,
+        title: row.title,
+        created_at: toIso(row.created_at),
+        updated_at: toIso(row.updated_at)
+      })),
+      chatMessages: chatMessages.rows.map(row => ({
+        id: row.id,
+        chatId: row.chat_id,
+        userId: row.user_id,
+        type: row.type,
+        text: row.text,
+        created_at: toIso(row.created_at)
       }))
     };
   } finally {
@@ -306,6 +350,50 @@ export async function writeDB(data) {
       );
     }
 
+    for (const chat of data.chats || []) {
+      await client.query(
+        `
+          INSERT INTO chats (id, user_id, title, created_at, updated_at)
+          VALUES ($1, $2, $3, COALESCE($4::timestamptz, NOW()), COALESCE($5::timestamptz, NOW()))
+          ON CONFLICT (id) DO UPDATE SET
+            user_id = EXCLUDED.user_id,
+            title = EXCLUDED.title,
+            created_at = EXCLUDED.created_at,
+            updated_at = EXCLUDED.updated_at
+        `,
+        [
+          String(chat.id),
+          chat.userId,
+          chat.title || "Nuevo chat",
+          chat.created_at || null,
+          chat.updated_at || null
+        ]
+      );
+    }
+
+    for (const message of data.chatMessages || []) {
+      await client.query(
+        `
+          INSERT INTO chat_messages (id, chat_id, user_id, type, text, created_at)
+          VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()))
+          ON CONFLICT (id) DO UPDATE SET
+            chat_id = EXCLUDED.chat_id,
+            user_id = EXCLUDED.user_id,
+            type = EXCLUDED.type,
+            text = EXCLUDED.text,
+            created_at = EXCLUDED.created_at
+        `,
+        [
+          String(message.id),
+          String(message.chatId),
+          message.userId,
+          message.type,
+          message.text,
+          message.created_at || null
+        ]
+      );
+    }
+
     await client.query("SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1), true)");
     await client.query("SELECT setval(pg_get_serial_sequence('subscriptions', 'id'), COALESCE((SELECT MAX(id) FROM subscriptions), 1), true)");
     await client.query("SELECT setval(pg_get_serial_sequence('payments', 'id'), COALESCE((SELECT MAX(id) FROM payments), 1), true)");
@@ -314,6 +402,19 @@ export async function writeDB(data) {
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function withDBClient(callback) {
+  await ensureSchema();
+  await migrateJsonToPostgresIfEmpty();
+
+  const client = await getPool().connect();
+
+  try {
+    return await callback(client);
   } finally {
     client.release();
   }
