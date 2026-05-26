@@ -3,6 +3,7 @@ import client from "../services/mercadopago.js";
 import { Payment, Preference } from "mercadopago";
 import { readDB, writeDB } from "../db/db.js";
 import { activatePremiumSubscription } from "../services/subscription.js";
+import { sendPremiumPurchasedEmail } from "../services/email.js";
 
 const router = express.Router();
 
@@ -107,6 +108,7 @@ router.post("/webhook", async (req, res) => {
     }
 
     const db = await readDB();
+    const user = (db.users || []).find(u => Number(u.id) === Number(userId));
     db.payments = db.payments || [];
 
     const alreadyProcessed = db.payments.some(p =>
@@ -132,7 +134,13 @@ router.post("/webhook", async (req, res) => {
     await writeDB(db);
 
     if (payment.status === "approved") {
-      await activatePremiumSubscription(userId, plan, payment.id);
+      const subscription = await activatePremiumSubscription(userId, plan, payment.id);
+
+      if (user) {
+        sendPremiumPurchasedEmail(user, subscription).catch(error =>
+          console.error("ERROR ENVIANDO CORREO PREMIUM:", error)
+        );
+      }
     }
 
     res.sendStatus(200);

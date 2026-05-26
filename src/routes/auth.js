@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { readDB, writeDB } from "../db/db.js";
 import authMiddlewares from "../middlewares/auth.js";
 import { getActiveSubscription } from "../services/subscription.js";
+import { sendAccountCreatedEmail, sendPasswordChangedEmail } from "../services/email.js";
 
 const router = express.Router();
 
@@ -47,6 +48,9 @@ router.post("/register", async (req, res) => {
 
     db.users.push(newUser);
     await writeDB(db);
+    sendAccountCreatedEmail(newUser).catch(error =>
+      console.error("ERROR ENVIANDO CORREO DE CUENTA:", error)
+    );
 
     res.json({ message: "Usuario creado", userId: newUser.id });
 
@@ -214,6 +218,9 @@ router.patch("/password", authMiddlewares, async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10);
     delete user.password_hash;
     await writeDB(db);
+    sendPasswordChangedEmail(user).catch(error =>
+      console.error("ERROR ENVIANDO CORREO DE CONTRASEÑA:", error)
+    );
 
     res.json({ message: "Contraseña actualizada" });
   } catch (error) {

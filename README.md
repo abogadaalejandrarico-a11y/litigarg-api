@@ -19,4 +19,23 @@ La aplicación crea automáticamente las tablas:
 - `payments`: pagos recibidos desde Mercado Pago.
 - `free_usage`: uso gratuito disponible por usuario.
 
+## Correos transaccionales
+
+LitigARG puede enviar correos cuando:
+
+- se crea una cuenta,
+- se cambia una contrasena,
+- se activa un plan Premium mensual o anual.
+
+Para activar los correos en Render, agregar estas variables de entorno:
+
+- `SMTP_HOST`: servidor SMTP.
+- `SMTP_PORT`: puerto SMTP, normalmente `587`.
+- `SMTP_SECURE`: `true` si el proveedor exige conexion segura directa, si no `false`.
+- `SMTP_USER`: usuario del correo.
+- `SMTP_PASS`: contrasena o clave de aplicacion del correo.
+- `SMTP_FROM`: remitente visible, por ejemplo `"LitigARG" <notificaciones@tudominio.com>`.
+
+Si estas variables no existen, LitigARG no envia correos, pero la app sigue funcionando.
+
 Si la base PostgreSQL está vacía y existe `database.json`, LitigARG copia esos datos iniciales una sola vez. Para evitar esa copia automática, usar `MIGRATE_JSON_DB=false`.
