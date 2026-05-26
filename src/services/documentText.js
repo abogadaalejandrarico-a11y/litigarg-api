@@ -1,8 +1,5 @@
-import { createRequire } from "module";
 import mammoth from "mammoth";
-
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+import { PDFParse } from "pdf-parse";
 
 const MAX_DOCUMENT_CHARS = 18000;
 
@@ -15,8 +12,14 @@ export async function extractDocumentText(file) {
   const name = file.originalname || "documento";
 
   if (mimeType === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
-    const result = await pdfParse(file.buffer);
-    return cleanText(result.text);
+    const parser = new PDFParse({ data: file.buffer });
+
+    try {
+      const result = await parser.getText();
+      return cleanText(result.text);
+    } finally {
+      await parser.destroy();
+    }
   }
 
   if (
