@@ -185,6 +185,13 @@ body{
   cursor:not-allowed;
 }
 
+.premium-button.active,
+.premium-action.active{
+  background:#2C2C2C !important;
+  color:#D1D5DB !important;
+  cursor:not-allowed;
+}
+
 .chats{
   padding:8px 10px;
   overflow-y:auto;
@@ -1318,7 +1325,7 @@ body{
       <div class="account-row">
         <label>Plan</label>
         <strong id="profilePlan">Experiencia gratuita</strong>
-        <button class="premium-action" onclick="closeAccountDetails(); openPremiumModal()">Cambiar a Premium</button>
+        <button class="premium-action" id="accountPremiumButton" onclick="closeAccountDetails(); openPremiumModal()">Cambiar a Premium</button>
       </div>
 
       <div class="account-row">
@@ -1598,6 +1605,25 @@ function closeMobileSidebar(){
 
 }
 
+function updatePremiumButtons(isPremium){
+
+  const sidebarButton = document.getElementById("premiumButton");
+  const accountButton = document.getElementById("accountPremiumButton");
+
+  if(sidebarButton){
+    sidebarButton.disabled = !!isPremium;
+    sidebarButton.innerText = isPremium ? "Premium activo" : "Activar Premium";
+    sidebarButton.classList.toggle("active", !!isPremium);
+  }
+
+  if(accountButton){
+    accountButton.disabled = !!isPremium;
+    accountButton.innerText = isPremium ? "Premium activo" : "Cambiar a Premium";
+    accountButton.classList.toggle("active", !!isPremium);
+  }
+
+}
+
 async function loadProfile(){
 
   try{
@@ -1637,14 +1663,16 @@ async function loadProfile(){
       document.getElementById("accountPlan").innerText = planName;
       document.getElementById("accountExpiry").innerText =
         "Plan: " + planName + "\nVence: " + formatDate(subscription.expiresAt);
+      updatePremiumButtons(true);
       return;
 
     }
 
-	    document.getElementById("accountPlan").innerText = "Experiencia gratuita";
-	    document.getElementById("accountExpiry").innerText =
-	      "Plan: experiencia gratuita\nSin vencimiento activo";
-	    showFreeNoticeIfNeeded();
+    document.getElementById("accountPlan").innerText = "Experiencia gratuita";
+    document.getElementById("accountExpiry").innerText =
+      "Plan: experiencia gratuita\nSin vencimiento activo";
+    updatePremiumButtons(false);
+    showFreeNoticeIfNeeded();
 	
 	  }catch(error){
 
@@ -1865,6 +1893,11 @@ async function activatePremium(plan){
 
   const user = getCurrentUser();
   const button = document.getElementById("premiumButton");
+
+  if(profileState.expiresAt){
+    alert("Tu experiencia Premium ya está activa.");
+    return;
+  }
 
   if(!user?.userId){
 
