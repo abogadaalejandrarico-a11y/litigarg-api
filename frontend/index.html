@@ -440,7 +440,6 @@ body{
   border-radius:18px;
   line-height:1.7;
   font-size:15px;
-  white-space:pre-wrap;
 }
 
 .user{
@@ -451,6 +450,46 @@ body{
 .bot{
   align-self:flex-start;
   background:#1A1A1A;
+}
+
+.bot h2,
+.bot h3{
+  margin:4px 0 12px 0;
+  color:#FFFFFF;
+  line-height:1.25;
+}
+
+.bot h2{
+  font-size:18px;
+  text-transform:uppercase;
+}
+
+.bot h3{
+  font-size:16px;
+}
+
+.bot p{
+  margin:0 0 12px 0;
+}
+
+.bot ul,
+.bot ol{
+  margin:0 0 14px 22px;
+  padding:0;
+}
+
+.bot li{
+  margin:7px 0;
+  padding-left:3px;
+}
+
+.bot strong{
+  color:#FFFFFF;
+  font-weight:700;
+}
+
+.user{
+  white-space:pre-wrap;
 }
 
 /* INPUT */
@@ -2508,6 +2547,97 @@ async function analyzeSelectedFile(){
 
 // ADD MESSAGE
 
+function escapeHtml(value){
+
+  return String(value || "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;");
+
+}
+
+function applyInlineMarkdown(value){
+
+  return value
+    .replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")
+    .replace(/\*(.*?)\*/g,"<em>$1</em>");
+
+}
+
+function renderMarkdown(text){
+
+  const lines = escapeHtml(text)
+    .replace(/\r\n/g,"\n")
+    .split("\n");
+
+  const html = [];
+  let listType = null;
+
+  function closeList(){
+    if(listType){
+      html.push(`</${listType}>`);
+      listType = null;
+    }
+  }
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+
+    if(!trimmed){
+      closeList();
+      return;
+    }
+
+    if(trimmed.startsWith("### ")){
+      closeList();
+      html.push("<h3>" + applyInlineMarkdown(trimmed.slice(4)) + "</h3>");
+      return;
+    }
+
+    if(trimmed.startsWith("## ")){
+      closeList();
+      html.push("<h2>" + applyInlineMarkdown(trimmed.slice(3)) + "</h2>");
+      return;
+    }
+
+    if(trimmed.startsWith("# ")){
+      closeList();
+      html.push("<h2>" + applyInlineMarkdown(trimmed.slice(2)) + "</h2>");
+      return;
+    }
+
+    const unordered = trimmed.match(/^[-•]\s+(.+)/);
+    if(unordered){
+      if(listType !== "ul"){
+        closeList();
+        listType = "ul";
+        html.push("<ul>");
+      }
+      html.push("<li>" + applyInlineMarkdown(unordered[1]) + "</li>");
+      return;
+    }
+
+    const ordered = trimmed.match(/^\d+\.\s+(.+)/);
+    if(ordered){
+      if(listType !== "ol"){
+        closeList();
+        listType = "ol";
+        html.push("<ol>");
+      }
+      html.push("<li>" + applyInlineMarkdown(ordered[1]) + "</li>");
+      return;
+    }
+
+    closeList();
+    html.push("<p>" + applyInlineMarkdown(trimmed) + "</p>");
+  });
+
+  closeList();
+
+  return html.join("");
+
+}
+
 function addMessage(text,type){
 
   const welcome = document.getElementById("welcome");
@@ -2522,7 +2652,11 @@ function addMessage(text,type){
 
   div.className = "message " + type;
 
-  div.innerText = text;
+  if(type === "bot"){
+    div.innerHTML = renderMarkdown(text);
+  }else{
+    div.innerText = text;
+  }
 
   document
     .getElementById("messages")

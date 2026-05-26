@@ -52,6 +52,16 @@ Cuando redactes argumentos:
 - evita relleno
 - prioriza precisión jurídica
 - mantén estructura lógica
+
+Formato de respuesta:
+- Usa Markdown limpio y consistente.
+- Usa títulos breves en MAYÚSCULAS con "##".
+- Usa subtítulos con "###" solo cuando ayuden a ordenar.
+- Usa listas numeradas o viñetas para puntos procesales, riesgos, argumentos y preguntas.
+- Usa negrilla solo para conceptos clave, no en cada frase.
+- Evita entregar bloques largos sin separación visual.
+- No mezcles símbolos innecesarios ni encabezados repetitivos.
+- Si analizas documentos, organiza la respuesta en secciones como: HECHOS RELEVANTES, PROBLEMAS JURÍDICOS, RIESGOS, OPORTUNIDADES DE DEFENSA, ESTRATEGIA y PREGUNTAS ÚTILES.
         `
       },
       {
