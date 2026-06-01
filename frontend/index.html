@@ -512,6 +512,15 @@ body{
   margin-bottom:6px;
 }
 
+.sources-panel div{
+  margin-bottom:10px;
+}
+
+.sources-panel p{
+  margin:5px 0 0 0;
+  color:#A3A3A3;
+}
+
 .bot a,
 .sources-panel a{
   color:#FFD04A;
@@ -2771,10 +2780,14 @@ function buildSourcesHtml(sources){
         : "Documento aportado: " + title;
 
       if(source.url){
-        return '<div><a href="' + escapeAttribute(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + "</a></div>";
+        return '<div><a href="' + escapeAttribute(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + "</a>" +
+          (source.extract ? '<p>' + escapeHtml(source.extract) + '</p>' : '') +
+          "</div>";
       }
 
-      return "<div>" + escapeHtml(label) + "</div>";
+      return "<div>" + escapeHtml(label) +
+        (source.extract ? '<p>' + escapeHtml(source.extract) + '</p>' : '') +
+        "</div>";
     }).join("");
   }
 

@@ -36,6 +36,14 @@ function makeCsjViewerUrl(id, room = "Penal", query = "consulta") {
 function normalizeCsjResult(result, query) {
   const id = result.id || result.onlinePath;
   const fileName = id ? id.split("/").pop() : result.title;
+  const extract = Array.isArray(result.fiveParaphraseResult)
+    ? result.fiveParaphraseResult
+      .map(item => String(item).replace(/<[^>]+>/g, ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 900)
+    : "";
 
   return {
     title: [result.ano, result.doctor, result.autoSentencia, fileName]
@@ -49,9 +57,8 @@ function normalizeCsjResult(result, query) {
     sourceType: "jurisprudence",
     verified: Boolean(id),
     official: true,
-    snippet: Array.isArray(result.fiveParaphraseResult)
-      ? result.fiveParaphraseResult.map(item => String(item).replace(/<[^>]+>/g, "")).join(" ").slice(0, 400)
-      : ""
+    extract,
+    snippet: extract
   };
 }
 
@@ -175,6 +182,7 @@ async function searchCorteConstitucional(query) {
           sourceType: "jurisprudence",
           verified: true,
           official: true,
+          extract: "",
           snippet: ""
         });
         break;
@@ -196,7 +204,8 @@ export function formatSourcesForPrompt(sources = []) {
         source.room ? `Sala: ${source.room}` : "",
         source.year ? `Ano: ${source.year}` : "",
         source.url ? `Enlace oficial: ${source.url}` : "",
-        source.snippet ? `Fragmento orientador: ${source.snippet}` : ""
+        source.extract ? `Extracto util para sustentar la respuesta: ${source.extract}` : "",
+        source.snippet && !source.extract ? `Fragmento orientador: ${source.snippet}` : ""
       ].filter(Boolean);
 
       return parts.join("\n");

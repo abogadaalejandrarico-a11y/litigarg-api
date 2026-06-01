@@ -1,6 +1,7 @@
 import express from "express";
 import authMiddlewares from "../middlewares/auth.js";
 import { searchJurisprudence } from "../services/jurisprudenceSearch.js";
+import { saveJurisprudenceSources } from "../services/jurisprudenceLibrary.js";
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ router.post("/search", authMiddlewares, async (req, res) => {
     }
 
     const result = await searchJurisprudence(query);
+    await saveJurisprudenceSources(result.sources || [], query);
     res.json(result);
   } catch (error) {
     console.error("ERROR BUSCANDO JURISPRUDENCIA:", error);

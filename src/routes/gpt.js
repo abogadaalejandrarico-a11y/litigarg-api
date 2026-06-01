@@ -10,6 +10,10 @@ import {
   searchJurisprudence,
   shouldSearchJurisprudence
 } from "../services/jurisprudenceSearch.js";
+import {
+  findRelevantJurisprudence,
+  saveJurisprudenceSources
+} from "../services/jurisprudenceLibrary.js";
 import { readDB } from "../db/db.js";
 
 const router = express.Router();
@@ -59,7 +63,19 @@ async function getOfficialSources(text) {
 
   try {
     const result = await searchJurisprudence(text);
-    return result.sources || [];
+    const officialSources = result.sources || [];
+    await saveJurisprudenceSources(officialSources, text);
+
+    const librarySources = await findRelevantJurisprudence(text);
+    const byUrl = new Map();
+
+    [...officialSources, ...librarySources].forEach(source => {
+      if (source.url && !byUrl.has(source.url)) {
+        byUrl.set(source.url, source);
+      }
+    });
+
+    return [...byUrl.values()];
   } catch (error) {
     console.error("ERROR BUSCANDO FUENTES OFICIALES:", error);
     return [];

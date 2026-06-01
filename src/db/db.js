@@ -110,6 +110,24 @@ async function ensureSchema() {
 
     await client.query("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS sources JSONB DEFAULT '[]'::jsonb");
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS jurisprudence_library (
+        id SERIAL PRIMARY KEY,
+        url TEXT UNIQUE NOT NULL,
+        title TEXT NOT NULL,
+        corporation TEXT,
+        room TEXT,
+        year INTEGER,
+        decision_date TEXT,
+        last_query TEXT,
+        extract TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        search_count INTEGER NOT NULL DEFAULT 1,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     await client.query("COMMIT");
     schemaReady = true;
   } catch (error) {
@@ -128,7 +146,7 @@ function toIso(value) {
 async function readJsonDB() {
   const exists = await fs.pathExists(DB_FILE);
   if (!exists) {
-    await fs.writeJson(DB_FILE, { users: [], subscriptions: [], payments: [], freeUsage: [], chats: [], chatMessages: [] }, { spaces: 2 });
+    await fs.writeJson(DB_FILE, { users: [], subscriptions: [], payments: [], freeUsage: [], chats: [], chatMessages: [], jurisprudenceLibrary: [] }, { spaces: 2 });
   }
 
   const db = await fs.readJson(DB_FILE);
@@ -139,6 +157,7 @@ async function readJsonDB() {
   db.freeUsage = db.freeUsage || [];
   db.chats = db.chats || [];
   db.chatMessages = db.chatMessages || [];
+  db.jurisprudenceLibrary = db.jurisprudenceLibrary || [];
 
   return db;
 }
