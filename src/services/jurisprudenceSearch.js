@@ -3,6 +3,7 @@ const CSJ_VIEWER_URL = "https://consultaprovidencias.cortesuprema.gov.co/visuali
 const CC_RELATORIA_URL = "https://www.corteconstitucional.gov.co/relatoria";
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || "https://litigarg-api.onrender.com").replace(/\/$/, "");
 const MAX_SOURCES_FOR_ANSWER = 2;
+const LEY_906_ART_88_URL = "https://www.secretariasenado.gov.co/senado/basedoc/ley_0906_2004a_pr002.html#88";
 
 const SEARCH_TRIGGERS = [
   "jurisprudencia",
@@ -329,6 +330,28 @@ async function searchCorteConstitucional(query) {
   return sources;
 }
 
+function getStatutorySources(query = "") {
+  const normalized = normalizeText(query);
+  const sources = [];
+
+  if (normalized.includes("devolucion") && /(arma|bien|bienes|incaut|ocupad)/.test(normalized)) {
+    sources.push({
+      title: "Ley 906 de 2004, articulo 88 - Devolucion de bienes",
+      url: LEY_906_ART_88_URL,
+      corporation: "Secretaria del Senado",
+      room: "Normativa penal",
+      year: 2004,
+      sourceType: "law",
+      verified: true,
+      official: true,
+      extract: "El articulo 88 regula la devolucion de bienes y recursos incautados u ocupados cuando no sean necesarios para la indagacion o investigacion, o cuando se determine que no procede su comiso. Tambien exige definir la situacion del bien y comunicar la decision a quien tenga derecho a reclamarlo.",
+      snippet: "Devolucion de bienes incautados u ocupados cuando no sean necesarios para la investigacion o no proceda comiso."
+    });
+  }
+
+  return sources;
+}
+
 export function formatSourcesForPrompt(sources = []) {
   if (!sources.length) return "";
 
@@ -355,6 +378,7 @@ export async function searchJurisprudence(query) {
     throw new Error("Consulta requerida");
   }
 
+  const statutorySources = getStatutorySources(query);
   const [csjSources, constitutionalSources] = await Promise.all([
     searchCorteSuprema(query).catch(error => ({
       error: error.message,
@@ -365,7 +389,7 @@ export async function searchJurisprudence(query) {
 
   const normalizedCsjSources = Array.isArray(csjSources) ? csjSources : [];
   const errors = Array.isArray(csjSources) ? [] : [csjSources.error].filter(Boolean);
-  const sources = [...constitutionalSources, ...normalizedCsjSources].slice(0, MAX_SOURCES_FOR_ANSWER);
+  const sources = [...statutorySources, ...constitutionalSources, ...normalizedCsjSources].slice(0, MAX_SOURCES_FOR_ANSWER);
 
   return {
     configured: true,
