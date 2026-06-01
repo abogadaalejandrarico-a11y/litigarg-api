@@ -204,6 +204,7 @@ export function formatSourcesForPrompt(sources = []) {
         source.room ? `Sala: ${source.room}` : "",
         source.year ? `Ano: ${source.year}` : "",
         source.url ? `Enlace oficial: ${source.url}` : "",
+        source.topics?.length ? `Temas asociados: ${source.topics.join(", ")}` : "",
         source.extract ? `Extracto util para sustentar la respuesta: ${source.extract}` : "",
         source.snippet && !source.extract ? `Fragmento orientador: ${source.snippet}` : ""
       ].filter(Boolean);

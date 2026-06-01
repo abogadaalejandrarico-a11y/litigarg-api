@@ -121,12 +121,15 @@ async function ensureSchema() {
         decision_date TEXT,
         last_query TEXT,
         extract TEXT,
+        topics JSONB DEFAULT '[]'::jsonb,
         metadata JSONB DEFAULT '{}'::jsonb,
         search_count INTEGER NOT NULL DEFAULT 1,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+
+    await client.query("ALTER TABLE jurisprudence_library ADD COLUMN IF NOT EXISTS topics JSONB DEFAULT '[]'::jsonb");
 
     await client.query("COMMIT");
     schemaReady = true;

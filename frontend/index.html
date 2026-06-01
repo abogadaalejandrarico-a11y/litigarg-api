@@ -521,6 +521,13 @@ body{
   color:#A3A3A3;
 }
 
+.source-topics{
+  display:block;
+  margin-top:4px;
+  color:#F5C542;
+  font-size:11px;
+}
+
 .bot a,
 .sources-panel a{
   color:#FFD04A;
@@ -2775,17 +2782,22 @@ function buildSourcesHtml(sources){
       }
 
       const title = source.title || source.name || "Fuente verificable";
+      const topics = source.topics && source.topics.length
+        ? '<span class="source-topics">' + escapeHtml(source.topics.join(" · ")) + '</span>'
+        : "";
       const label = source.corporation
         ? source.corporation + ": " + title
         : "Documento aportado: " + title;
 
       if(source.url){
         return '<div><a href="' + escapeAttribute(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + "</a>" +
+          topics +
           (source.extract ? '<p>' + escapeHtml(source.extract) + '</p>' : '') +
           "</div>";
       }
 
       return "<div>" + escapeHtml(label) +
+        topics +
         (source.extract ? '<p>' + escapeHtml(source.extract) + '</p>' : '') +
         "</div>";
     }).join("");
