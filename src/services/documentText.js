@@ -2,12 +2,14 @@ import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 
 const MAX_DOCUMENT_CHARS = 18000;
+const MAX_LIBRARY_CHARS = 300000;
 
-export async function extractDocumentText(file) {
+export async function extractDocumentText(file, options = {}) {
   if (!file) {
     throw new Error("Archivo requerido");
   }
 
+  const maxChars = options.maxChars || MAX_DOCUMENT_CHARS;
   const mimeType = file.mimetype;
   const name = file.originalname || "documento";
 
@@ -16,7 +18,7 @@ export async function extractDocumentText(file) {
 
     try {
       const result = await parser.getText();
-      return cleanText(result.text);
+      return cleanText(result.text, maxChars);
     } finally {
       await parser.destroy();
     }
@@ -27,19 +29,23 @@ export async function extractDocumentText(file) {
     name.toLowerCase().endsWith(".docx")
   ) {
     const result = await mammoth.extractRawText({ buffer: file.buffer });
-    return cleanText(result.value);
+    return cleanText(result.value, maxChars);
   }
 
   if (mimeType?.startsWith("text/") || name.toLowerCase().endsWith(".txt")) {
-    return cleanText(file.buffer.toString("utf8"));
+    return cleanText(file.buffer.toString("utf8"), maxChars);
   }
 
   throw new Error("Formato no soportado. Usa PDF, Word .docx o texto .txt");
 }
 
-function cleanText(text) {
+export function getLibraryTextLimit() {
+  return MAX_LIBRARY_CHARS;
+}
+
+function cleanText(text, maxChars = MAX_DOCUMENT_CHARS) {
   return (text || "")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, MAX_DOCUMENT_CHARS);
+    .slice(0, maxChars);
 }

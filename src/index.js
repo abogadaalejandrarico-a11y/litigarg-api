@@ -9,6 +9,7 @@ import adminRoutes from "./routes/admin.js";
 import contraFiscaliaRoutes from "./routes/contraFiscalia.js";
 import chatRoutes from "./routes/chats.js";
 import jurisprudenceRoutes from "./routes/jurisprudence.js";
+import libraryRoutes from "./routes/library.js";
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/gpt/contra-fiscalia", contraFiscaliaRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/jurisprudence", jurisprudenceRoutes);
+app.use("/api/library", libraryRoutes);
 
 app.get("/", (req, res) => {
   res.sendFile("frontend/index.html", { root: process.cwd() });

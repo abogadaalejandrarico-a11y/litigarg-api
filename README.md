@@ -18,6 +18,9 @@ La aplicación crea automáticamente las tablas:
 - `subscriptions`: plan, estado y vencimiento.
 - `payments`: pagos recibidos desde Mercado Pago.
 - `free_usage`: uso gratuito disponible por usuario.
+- `document_library`: libros, PDFs y materiales internos cargados para consulta.
+- `document_chunks`: fragmentos consultables de cada material interno.
+- `jurisprudence_library`: providencias y fuentes juridicas encontradas.
 
 ## Correos transaccionales
 
@@ -51,6 +54,30 @@ La busqueda usa o prepara enlaces verificables de estas fuentes:
 - `ramajudicial.gov.co`
 
 Regla de seguridad: LitigARG no debe tratar una providencia como verificada si no hay enlace oficial trazable.
+
+## Biblioteca documental interna
+
+LitigARG puede guardar libros, PDFs, Word y textos para consulta interna.
+
+Rutas internas:
+
+- `POST /api/library/upload`: sube un documento y lo divide en fragmentos consultables.
+- `GET /api/library`: lista documentos guardados.
+- `POST /api/library/search`: busca fragmentos relevantes dentro de la biblioteca.
+
+Campos opcionales al subir:
+
+- `title`: titulo visible.
+- `author`: autor, por ejemplo Wilson Gomez.
+- `category`: categoria del material.
+- `tags`: etiquetas separadas por coma.
+- `description`: descripcion breve.
+
+Los fragmentos de biblioteca se usan como apoyo doctrinal, metodologico o tecnico. No se presentan como jurisprudencia oficial.
+
+## Aprendizaje por correcciones
+
+Siguiente modulo pendiente: guardar retroalimentacion de usuarios sobre respuestas, especialmente correcciones, votos negativos y versiones corregidas. Esa informacion debe alimentar una tabla de patrones de mejora para ajustar instrucciones, biblioteca, ejemplos y evaluaciones internas sin modificar automaticamente la base juridica verificada.
 
 Si estas variables no existen, LitigARG no envia correos, pero la app sigue funcionando.
 

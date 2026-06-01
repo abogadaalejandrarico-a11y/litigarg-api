@@ -108,8 +108,12 @@ FORMATO DE RESPUESTA
 export async function generarRespuestaLegal(mensaje, options = {}) {
   const userName = (options.userName || "").trim();
   const sourcesContext = (options.sourcesContext || "").trim();
+  const libraryContext = (options.libraryContext || "").trim();
   const userContext = userName
     ? `\n\nUsuario actual: ${userName}. Tratalo por ese nombre de forma natural cuando expliques lo que vas a hacer, lo que encontraste o como organizaras la respuesta. No repitas su nombre en cada parrafo; usalo solo cuando aporte cercania y claridad.`
+    : "";
+  const internalLibraryContext = libraryContext
+    ? `\n\nBIBLIOTECA INTERNA DE LITIGARG\n${libraryContext}\n\nEstos fragmentos provienen de libros, materiales o documentos internos cargados en LitigARG. Uselos como apoyo doctrinal, metodologico o tecnico. No los presentes como jurisprudencia oficial. Si los usas, menciona de forma natural el material interno o autor cuando aparezca disponible.`
     : "";
   const verifiedSourcesContext = sourcesContext
     ? `\n\nRESULTADO DE BUSQUEDA OFICIAL PARA ESTA RESPUESTA\n${sourcesContext}\n\nEvalua primero si estas fuentes responden exactamente al problema juridico del usuario. En la respuesta debes indicar brevemente que buscaste y que encontraste. Usa solo las fuentes que sean realmente pertinentes y no cites mas fuentes de las que uses en la respuesta. Cuando menciones una sentencia o fuente de esta lista, agrega el enlace Markdown al final del mismo parrafo, por ejemplo: [Fuente oficial](https://...). Si la fuente tiene extracto util, incluyelo dentro del cuerpo de la respuesta en un parrafo propio y con lenguaje practico, por ejemplo: "Aqui te presento un extracto de la sentencia que puedes usar para sustentar ante el juez: ...". Luego explica como usar ese extracto en la solicitud o intervencion oral. No lo escondas solo en las fuentes. No copies bloques excesivamente largos: selecciona o sintetiza el fragmento que sirva para sostener el argumento. No cites como verificada una fuente que no aparezca aqui o que el usuario no haya aportado. Si las fuentes disponibles no tratan directamente el punto pedido, dilo expresamente y explica que se requiere una busqueda mas especifica en vez de presentar providencias apenas parecidas como si fueran suficientes.`
@@ -120,7 +124,7 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
     messages: [
       {
         role: "system",
-        content: `${MASTER_PROMPT}${userContext}${verifiedSourcesContext}`
+        content: `${MASTER_PROMPT}${userContext}${internalLibraryContext}${verifiedSourcesContext}`
       },
       {
         role: "user",

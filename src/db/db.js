@@ -131,6 +131,35 @@ async function ensureSchema() {
 
     await client.query("ALTER TABLE jurisprudence_library ADD COLUMN IF NOT EXISTS topics JSONB DEFAULT '[]'::jsonb");
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS document_library (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        mime_type TEXT,
+        author TEXT,
+        category TEXT,
+        description TEXT,
+        tags JSONB DEFAULT '[]'::jsonb,
+        text_preview TEXT,
+        uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS document_chunks (
+        id SERIAL PRIMARY KEY,
+        document_id INTEGER NOT NULL REFERENCES document_library(id) ON DELETE CASCADE,
+        chunk_index INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        topics JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(document_id, chunk_index)
+      )
+    `);
+
     await client.query("COMMIT");
     schemaReady = true;
   } catch (error) {

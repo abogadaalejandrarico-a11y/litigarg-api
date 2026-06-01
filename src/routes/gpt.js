@@ -6,6 +6,10 @@ import { getFreeUsage, incrementFreeUsage } from "../services/usage.js";
 import { extractDocumentText } from "../services/documentText.js";
 import { generarRespuestaLegal } from "../services/openai.js";
 import {
+  findRelevantDocuments,
+  formatDocumentContext
+} from "../services/documentLibrary.js";
+import {
   formatSourcesForPrompt,
   searchJurisprudence,
   shouldSearchJurisprudence
@@ -82,6 +86,16 @@ async function getOfficialSources(text) {
   }
 }
 
+async function getLibraryContext(text) {
+  try {
+    const chunks = await findRelevantDocuments(text);
+    return formatDocumentContext(chunks);
+  } catch (error) {
+    console.error("ERROR BUSCANDO BIBLIOTECA INTERNA:", error);
+    return "";
+  }
+}
+
 router.post("/chat", authMiddlewares, async (req, res) => {
   try {
     const { message } = req.body;
@@ -105,8 +119,10 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     const userName = await getUserName(userId);
     const sourceSearchNeeded = shouldSearchJurisprudence(message);
     const sources = await getOfficialSources(message);
+    const libraryContext = await getLibraryContext(message);
     const respuesta = await generarRespuestaLegal(message, {
       userName,
+      libraryContext,
       sourcesContext: sources.length
         ? formatSourcesForPrompt(sources)
         : sourceSearchNeeded
@@ -161,8 +177,10 @@ ${documentText}
     const sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
     const sourceSearchNeeded = shouldSearchJurisprudence(sourceQuery);
     const sources = await getOfficialSources(sourceQuery);
+    const libraryContext = await getLibraryContext(sourceQuery);
     const respuesta = await generarRespuestaLegal(message, {
       userName,
+      libraryContext,
       sourcesContext: sources.length
         ? formatSourcesForPrompt(sources)
         : sourceSearchNeeded
