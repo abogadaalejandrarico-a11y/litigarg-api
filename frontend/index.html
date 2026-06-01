@@ -1368,7 +1368,7 @@ body{
           <div class="account-menu-email" id="accountEmail">Usuario</div>
           <div class="account-menu-detail" id="accountExpiry">Consultando estado...</div>
           <button class="menu-action" onclick="openAccountDetails()">Cuenta</button>
-          <button class="menu-action" onclick="openLibraryModal()">Biblioteca</button>
+          <button class="menu-action" id="libraryMenuButton" onclick="openLibraryModal()" style="display:none">Biblioteca</button>
           <button class="logout-button" onclick="logout()">Cerrar sesión</button>
         </div>
       </div>
@@ -1581,7 +1581,8 @@ let profileState = {
   email:"",
   username:"",
   plan:"Experiencia gratuita",
-  expiresAt:null
+  expiresAt:null,
+  canManageLibrary:false
 };
 
 function handleLoginEnter(event){
@@ -1763,6 +1764,11 @@ function closeAccountDetails(){
 
 function openLibraryModal(){
 
+  if(!profileState.canManageLibrary){
+    alert("Solo la cuenta creadora puede administrar la biblioteca interna.");
+    return;
+  }
+
   document.getElementById("accountMenu").classList.remove("open");
   document.getElementById("libraryModal").style.display = "flex";
   loadLibraryDocuments();
@@ -1772,6 +1778,43 @@ function openLibraryModal(){
 function closeLibraryModal(){
 
   document.getElementById("libraryModal").style.display = "none";
+
+}
+
+function updateLibraryAccess(canManageLibrary){
+
+  profileState.canManageLibrary = !!canManageLibrary;
+  document.getElementById("libraryMenuButton").style.display =
+    profileState.canManageLibrary ? "block" : "none";
+
+}
+
+async function loadLibraryAccess(){
+
+  if(!token){
+    updateLibraryAccess(false);
+    return;
+  }
+
+  try{
+    const res = await fetch(API_URL + "/api/library/admin-status", {
+      headers:{
+        Authorization:"Bearer " + token
+      }
+    });
+
+    if(!res.ok){
+      updateLibraryAccess(false);
+      return;
+    }
+
+    const data = await res.json();
+    updateLibraryAccess(!!data.canManageLibrary);
+
+  }catch(error){
+    console.error(error);
+    updateLibraryAccess(false);
+  }
 
 }
 
@@ -2003,12 +2046,14 @@ async function loadProfile(){
       email,
       username: getDisplayName(username,email),
       plan: planName,
-      expiresAt: subscription?.expiresAt || null
+      expiresAt: subscription?.expiresAt || null,
+      canManageLibrary: profileState.canManageLibrary
     };
 
     document.getElementById("accountAvatar").innerText = getInitial(username,email);
     document.getElementById("accountName").innerText = profileState.username;
     document.getElementById("accountEmail").innerText = email;
+    loadLibraryAccess();
 
     if(subscription){
 
@@ -2233,6 +2278,7 @@ function logout(){
   document.getElementById("accountMenu").classList.remove("open");
   document.getElementById("accountModal").style.display = "none";
   document.getElementById("libraryModal").style.display = "none";
+  updateLibraryAccess(false);
   closeMobileSidebar();
 
   document.getElementById("app").style.display = "none";

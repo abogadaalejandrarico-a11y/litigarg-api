@@ -17,7 +17,30 @@ const upload = multer({
   }
 });
 
-router.get("/", authMiddlewares, async (req, res) => {
+function getLibraryAdminEmails() {
+  return (process.env.LIBRARY_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "litigarg@gmail.com")
+    .split(",")
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function canManageLibrary(user) {
+  return getLibraryAdminEmails().includes(String(user?.email || "").toLowerCase());
+}
+
+function requireLibraryAdmin(req, res, next) {
+  if (!canManageLibrary(req.user)) {
+    return res.status(403).json({ error: "Solo la cuenta creadora puede administrar la biblioteca" });
+  }
+
+  next();
+}
+
+router.get("/admin-status", authMiddlewares, (req, res) => {
+  res.json({ canManageLibrary: canManageLibrary(req.user) });
+});
+
+router.get("/", authMiddlewares, requireLibraryAdmin, async (req, res) => {
   try {
     const documents = await listLibraryDocuments();
     res.json({ documents });
@@ -27,7 +50,7 @@ router.get("/", authMiddlewares, async (req, res) => {
   }
 });
 
-router.post("/upload", authMiddlewares, upload.single("file"), async (req, res) => {
+router.post("/upload", authMiddlewares, requireLibraryAdmin, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "Archivo requerido" });
@@ -60,7 +83,7 @@ router.post("/upload", authMiddlewares, upload.single("file"), async (req, res) 
   }
 });
 
-router.post("/search", authMiddlewares, async (req, res) => {
+router.post("/search", authMiddlewares, requireLibraryAdmin, async (req, res) => {
   try {
     const { query } = req.body;
 

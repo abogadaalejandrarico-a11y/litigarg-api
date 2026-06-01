@@ -59,6 +59,10 @@ Regla de seguridad: LitigARG no debe tratar una providencia como verificada si n
 
 LitigARG puede guardar libros, PDFs, Word y textos para consulta interna.
 
+La administracion de la biblioteca esta restringida a la cuenta creadora. Por defecto se autoriza `litigarg@gmail.com`. Para cambiar o agregar administradores en Render, usar:
+
+- `LIBRARY_ADMIN_EMAILS`: correos separados por coma, por ejemplo `creadora@arg.com,socio@arg.com`.
+
 Rutas internas:
 
 - `POST /api/library/upload`: sube un documento y lo divide en fragmentos consultables.
