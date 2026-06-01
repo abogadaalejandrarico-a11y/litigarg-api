@@ -36,6 +36,27 @@ Para activar los correos en Render, agregar estas variables de entorno:
 - `SMTP_PASS`: contrasena o clave de aplicacion del correo.
 - `SMTP_FROM`: remitente visible, por ejemplo `"LitigARG" <notificaciones@tudominio.com>`.
 
+## Busqueda jurisprudencial con Perplexity
+
+LitigARG incluye un modulo inicial para buscar jurisprudencia con Perplexity Sonar.
+
+Variables necesarias en Render:
+
+- `PERPLEXITY_API_KEY`: clave API de Perplexity.
+- `PERPLEXITY_MODEL`: opcional. Por defecto usa `sonar-pro`.
+
+Ruta interna:
+
+- `POST /api/jurisprudence/search`
+
+La busqueda prioriza fuentes oficiales:
+
+- `corteconstitucional.gov.co`
+- `cortesuprema.gov.co`
+- `ramajudicial.gov.co`
+
+Regla de seguridad: Perplexity ayuda a buscar, pero LitigARG debe marcar si una fuente no es oficial y no debe tratar una providencia como verificada si no hay enlace trazable.
+
 Si estas variables no existen, LitigARG no envia correos, pero la app sigue funcionando.
 
 Si la base PostgreSQL está vacía y existe `database.json`, LitigARG copia esos datos iniciales una sola vez. Para evitar esa copia automática, usar `MIGRATE_JSON_DB=false`.
