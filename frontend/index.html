@@ -2792,13 +2792,11 @@ function buildSourcesHtml(sources){
       if(source.url){
         return '<div><a href="' + escapeAttribute(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + "</a>" +
           topics +
-          (source.extract ? '<p>' + escapeHtml(source.extract) + '</p>' : '') +
           "</div>";
       }
 
       return "<div>" + escapeHtml(label) +
         topics +
-        (source.extract ? '<p>' + escapeHtml(source.extract) + '</p>' : '') +
         "</div>";
     }).join("");
   }
