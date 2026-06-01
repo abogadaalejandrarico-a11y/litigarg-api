@@ -103,10 +103,15 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     }
 
     const userName = await getUserName(userId);
+    const sourceSearchNeeded = shouldSearchJurisprudence(message);
     const sources = await getOfficialSources(message);
     const respuesta = await generarRespuestaLegal(message, {
       userName,
-      sourcesContext: formatSourcesForPrompt(sources)
+      sourcesContext: sources.length
+        ? formatSourcesForPrompt(sources)
+        : sourceSearchNeeded
+          ? "Busqueda oficial realizada: no se encontraron providencias suficientemente pertinentes para citar con seguridad en esta respuesta. Debes decirlo expresamente y no inventar ni forzar jurisprudencia."
+          : ""
     });
     const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 
@@ -154,10 +159,15 @@ ${documentText}
 
     const userName = await getUserName(userId);
     const sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
+    const sourceSearchNeeded = shouldSearchJurisprudence(sourceQuery);
     const sources = await getOfficialSources(sourceQuery);
     const respuesta = await generarRespuestaLegal(message, {
       userName,
-      sourcesContext: formatSourcesForPrompt(sources)
+      sourcesContext: sources.length
+        ? formatSourcesForPrompt(sources)
+        : sourceSearchNeeded
+          ? "Busqueda oficial realizada: no se encontraron providencias suficientemente pertinentes para citar con seguridad en esta respuesta. Debes decirlo expresamente y no inventar ni forzar jurisprudencia."
+          : ""
     });
     const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 

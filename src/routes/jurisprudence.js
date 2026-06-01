@@ -8,6 +8,54 @@ import {
 } from "../services/jurisprudenceLibrary.js";
 
 const router = express.Router();
+const CSJ_BACKEND_URL = "https://consultaprovidenciasbk.cortesuprema.gov.co";
+
+function decodeOfficialPath(encodedPath = "") {
+  const officialPath = Buffer.from(encodedPath, "base64url").toString("utf8");
+
+  if (!officialPath.startsWith("/var/www/html/Index/PENAL/")) {
+    throw new Error("Ruta de providencia no permitida");
+  }
+
+  if (!/\.(pdf|doc|docx)$/i.test(officialPath)) {
+    throw new Error("Tipo de archivo no permitido");
+  }
+
+  return officialPath;
+}
+
+function getContentType(fileName = "") {
+  if (/\.pdf$/i.test(fileName)) return "application/pdf";
+  if (/\.docx$/i.test(fileName)) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (/\.doc$/i.test(fileName)) return "application/msword";
+  return "application/octet-stream";
+}
+
+router.get("/download/:encodedPath", async (req, res) => {
+  try {
+    const officialPath = decodeOfficialPath(req.params.encodedPath);
+    const fileName = officialPath.split("/").pop() || "providencia";
+    const response = await fetch(`${CSJ_BACKEND_URL}/downloadFile`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ path: officialPath })
+    });
+
+    if (!response.ok) {
+      return res.status(502).send("No fue posible cargar la providencia oficial.");
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    res.setHeader("Content-Type", getContentType(fileName));
+    res.setHeader("Content-Disposition", `inline; filename="${fileName.replace(/"/g, "")}"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error("ERROR DESCARGANDO PROVIDENCIA:", error);
+    res.status(400).send("Enlace de providencia invalido.");
+  }
+});
 
 router.post("/search", authMiddlewares, async (req, res) => {
   try {
