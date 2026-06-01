@@ -22,7 +22,7 @@ router.get("/", authMiddlewares, async (req, res) => {
 
 router.post("/:chatId/messages", authMiddlewares, async (req, res) => {
   try {
-    const { text, type, title } = req.body;
+    const { text, type, title, sources } = req.body;
 
     if (!text || !["user", "bot"].includes(type)) {
       return res.status(400).json({ error: "Mensaje invalido" });
@@ -32,7 +32,8 @@ router.post("/:chatId/messages", authMiddlewares, async (req, res) => {
       chatId: req.params.chatId,
       title,
       text,
-      type
+      type,
+      sources: Array.isArray(sources) ? sources : []
     });
 
     res.json({ chat });

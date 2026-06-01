@@ -512,6 +512,19 @@ body{
   margin-bottom:6px;
 }
 
+.bot a,
+.sources-panel a{
+  color:#FFD04A;
+  text-decoration:none;
+  border-bottom:1px solid rgba(255,208,74,0.45);
+}
+
+.bot a:hover,
+.sources-panel a:hover{
+  color:#FFFFFF;
+  border-bottom-color:#FFFFFF;
+}
+
 .bot h2,
 .bot h3{
   margin:10px 0 18px 0;
@@ -2082,7 +2095,7 @@ function createConversation(firstMessage){
 
 }
 
-async function saveMessageToServer(conversationId,text,type){
+async function saveMessageToServer(conversationId,text,type,sources = []){
 
   const conversation = findConversation(conversationId);
 
@@ -2101,7 +2114,8 @@ async function saveMessageToServer(conversationId,text,type){
         body:JSON.stringify({
           text,
           type,
-          title:conversation.title
+          title:conversation.title,
+          sources
         })
       }
     );
@@ -2247,7 +2261,7 @@ function addMessageToConversation(conversationId,text,type,options = {}){
     sources:options.sources || []
   });
 
-  saveMessageToServer(conversationId,text,type);
+  saveMessageToServer(conversationId,text,type,options.sources || []);
 
   if(currentConversation?.id === conversationId){
 
@@ -2522,7 +2536,15 @@ if(res.status === 403){
 
 }
 
-addMessageToConversation(conversationId,data.answer || data.error || "Error","bot",{animate:true});
+addMessageToConversation(
+  conversationId,
+  data.answer || data.error || "Error",
+  "bot",
+  {
+    animate:true,
+    sources:data.sources || []
+  }
+);
 
   }catch(error){
 
@@ -2609,7 +2631,10 @@ async function analyzeSelectedFile(){
       "bot",
       {
         animate:true,
-        sources:data.fileName ? [data.fileName] : []
+        sources:[
+          ...(data.fileName ? [{ title:data.fileName, sourceType:"uploaded_document" }] : []),
+          ...(data.sources || [])
+        ]
       }
     );
 
@@ -2640,9 +2665,19 @@ function escapeHtml(value){
 
 }
 
+function escapeAttribute(value){
+
+  return escapeHtml(value).replace(/"/g,"&quot;");
+
+}
+
 function applyInlineMarkdown(value){
 
   return value
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+    )
     .replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")
     .replace(/\*(.*?)\*/g,"<em>$1</em>");
 
@@ -2722,10 +2757,25 @@ function renderMarkdown(text){
 
 }
 
-function buildSourcesText(sources){
+function buildSourcesHtml(sources){
 
   if(sources && sources.length){
-    return sources.map(source => "Documento aportado: " + source).join("\n");
+    return sources.map(source => {
+      if(typeof source === "string"){
+        return "<div>Documento aportado: " + escapeHtml(source) + "</div>";
+      }
+
+      const title = source.title || source.name || "Fuente verificable";
+      const label = source.corporation
+        ? source.corporation + ": " + title
+        : "Documento aportado: " + title;
+
+      if(source.url){
+        return '<div><a href="' + escapeAttribute(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + "</a></div>";
+      }
+
+      return "<div>" + escapeHtml(label) + "</div>";
+    }).join("");
   }
 
   return "Sin fuentes externas vinculadas en esta respuesta. Se construyó con la consulta del usuario y el conocimiento jurídico general de LitigARG. Cuando conectemos jurisprudencia y biblioteca documental, aquí aparecerán las fuentes verificables.";
@@ -2782,7 +2832,7 @@ function addBotActions(messageDiv,text,options = {}){
   sourcesPanel.className = "sources-panel";
   sourcesPanel.innerHTML =
     "<strong>Fuentes</strong>" +
-    escapeHtml(buildSourcesText(options.sources || [])).replace(/\n/g,"<br>");
+    buildSourcesHtml(options.sources || []);
 
   sourcesButton.onclick = () => {
     sourcesPanel.classList.toggle("open");

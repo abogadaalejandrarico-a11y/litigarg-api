@@ -103,9 +103,12 @@ async function ensureSchema() {
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         type TEXT NOT NULL,
         text TEXT NOT NULL,
+        sources JSONB DEFAULT '[]'::jsonb,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+
+    await client.query("ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS sources JSONB DEFAULT '[]'::jsonb");
 
     await client.query("COMMIT");
     schemaReady = true;
@@ -236,6 +239,7 @@ export async function readDB() {
         userId: row.user_id,
         type: row.type,
         text: row.text,
+        sources: row.sources || [],
         created_at: toIso(row.created_at)
       }))
     };
@@ -374,13 +378,14 @@ export async function writeDB(data) {
     for (const message of data.chatMessages || []) {
       await client.query(
         `
-          INSERT INTO chat_messages (id, chat_id, user_id, type, text, created_at)
-          VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()))
+          INSERT INTO chat_messages (id, chat_id, user_id, type, text, sources, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6::jsonb, COALESCE($7::timestamptz, NOW()))
           ON CONFLICT (id) DO UPDATE SET
             chat_id = EXCLUDED.chat_id,
             user_id = EXCLUDED.user_id,
             type = EXCLUDED.type,
             text = EXCLUDED.text,
+            sources = EXCLUDED.sources,
             created_at = EXCLUDED.created_at
         `,
         [
@@ -389,6 +394,7 @@ export async function writeDB(data) {
           message.userId,
           message.type,
           message.text,
+          JSON.stringify(Array.isArray(message.sources) ? message.sources : []),
           message.created_at || null
         ]
       );

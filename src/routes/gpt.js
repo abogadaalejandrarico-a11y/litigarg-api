@@ -5,6 +5,11 @@ import { isPremiumActive } from "../services/subscription.js";
 import { getFreeUsage, incrementFreeUsage } from "../services/usage.js";
 import { extractDocumentText } from "../services/documentText.js";
 import { generarRespuestaLegal } from "../services/openai.js";
+import {
+  formatSourcesForPrompt,
+  searchJurisprudence,
+  shouldSearchJurisprudence
+} from "../services/jurisprudenceSearch.js";
 import { readDB } from "../db/db.js";
 
 const router = express.Router();
@@ -47,6 +52,20 @@ async function getUserName(userId) {
   return user?.username || user?.email?.split("@")[0] || "";
 }
 
+async function getOfficialSources(text) {
+  if (!shouldSearchJurisprudence(text)) {
+    return [];
+  }
+
+  try {
+    const result = await searchJurisprudence(text);
+    return result.sources || [];
+  } catch (error) {
+    console.error("ERROR BUSCANDO FUENTES OFICIALES:", error);
+    return [];
+  }
+}
+
 router.post("/chat", authMiddlewares, async (req, res) => {
   try {
     const { message } = req.body;
@@ -68,11 +87,16 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     }
 
     const userName = await getUserName(userId);
-    const respuesta = await generarRespuestaLegal(message, { userName });
+    const sources = await getOfficialSources(message);
+    const respuesta = await generarRespuestaLegal(message, {
+      userName,
+      sourcesContext: formatSourcesForPrompt(sources)
+    });
     const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 
     res.json({
       answer: respuesta,
+      sources,
       isPremium: access.premium,
       freeUsage: updatedFreeUsage
     });
@@ -113,12 +137,18 @@ ${documentText}
     `.trim();
 
     const userName = await getUserName(userId);
-    const respuesta = await generarRespuestaLegal(message, { userName });
+    const sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
+    const sources = await getOfficialSources(sourceQuery);
+    const respuesta = await generarRespuestaLegal(message, {
+      userName,
+      sourcesContext: formatSourcesForPrompt(sources)
+    });
     const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 
     res.json({
       answer: respuesta,
       fileName: req.file.originalname,
+      sources,
       isPremium: access.premium,
       freeUsage: updatedFreeUsage
     });

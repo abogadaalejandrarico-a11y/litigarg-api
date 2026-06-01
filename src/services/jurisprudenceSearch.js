@@ -1,44 +1,207 @@
-const PERPLEXITY_ENDPOINT = "https://api.perplexity.ai/v1/sonar";
-const DEFAULT_MODEL = process.env.PERPLEXITY_MODEL || "sonar-pro";
+const CSJ_API_URL = "https://consultaprovidenciasbk.cortesuprema.gov.co/api";
+const CSJ_VIEWER_URL = "https://consultaprovidencias.cortesuprema.gov.co/visualizador";
+const CC_RELATORIA_URL = "https://www.corteconstitucional.gov.co/relatoria";
 
-const OFFICIAL_DOMAINS = [
-  "corteconstitucional.gov.co",
-  "cortesuprema.gov.co",
-  "ramajudicial.gov.co"
+const SEARCH_TRIGGERS = [
+  "jurisprudencia",
+  "sentencia",
+  "providencia",
+  "radicado",
+  "corte suprema",
+  "corte constitucional",
+  "sala penal",
+  "control de garantias",
+  "medida de aseguramiento",
+  "debido proceso",
+  "prueba",
+  "estipulacion",
+  "acusacion",
+  "audiencia",
+  "casacion",
+  "apelacion"
 ];
 
-function isPerplexityConfigured() {
-  return Boolean(process.env.PERPLEXITY_API_KEY);
+function cleanText(value = "") {
+  return String(value)
+    .replace(/["\\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function isOfficialSource(url = "") {
-  return OFFICIAL_DOMAINS.some(domain => url.toLowerCase().includes(domain));
+function makeCsjViewerUrl(id, room = "Penal", query = "consulta") {
+  const encodedId = Buffer.from(id, "utf8").toString("base64");
+  return `${CSJ_VIEWER_URL}/${encodeURIComponent(encodedId)}/${encodeURIComponent(room)}/${encodeURIComponent(cleanText(query) || "consulta")}`;
 }
 
-function normalizeSearchResult(result) {
+function normalizeCsjResult(result, query) {
+  const id = result.id || result.onlinePath;
+  const fileName = id ? id.split("/").pop() : result.title;
+
   return {
-    title: result.title || "Fuente sin titulo",
-    url: result.url,
-    date: result.date || null,
-    lastUpdated: result.last_updated || null,
-    snippet: result.snippet || "",
-    official: isOfficialSource(result.url || "")
+    title: [result.ano, result.doctor, result.autoSentencia, fileName]
+      .filter(Boolean)
+      .join(" - ") || "Providencia Corte Suprema de Justicia",
+    url: id ? makeCsjViewerUrl(id, "Penal", query) : "https://consultaprovidencias.cortesuprema.gov.co/",
+    corporation: "Corte Suprema de Justicia",
+    room: "Sala de Casacion Penal",
+    year: result.ano || null,
+    date: result.fechaCreacion || null,
+    sourceType: "jurisprudence",
+    verified: Boolean(id),
+    official: true,
+    snippet: Array.isArray(result.fiveParaphraseResult)
+      ? result.fiveParaphraseResult.map(item => String(item).replace(/<[^>]+>/g, "")).join(" ").slice(0, 400)
+      : ""
   };
 }
 
-function buildJurisprudencePrompt(query) {
-  return `
-Busca jurisprudencia colombiana real y verificable para esta consulta:
+function getConstitutionalCandidates(reference) {
+  const match = String(reference).match(/\b(SU|T|C)[-\s]?(\d{1,4})[-\s]?(\d{2,4})\b/i);
 
-${query}
+  if (!match) return [];
 
-Reglas:
-- Prioriza fuentes oficiales de Corte Constitucional, Corte Suprema de Justicia y Rama Judicial.
-- No inventes sentencias, radicados, fechas ni magistrados ponentes.
-- Si no encuentras providencia oficial verificable, dilo expresamente.
-- Devuelve solo referencias que puedan verificarse con enlace.
-- Cuando sea posible, identifica corporacion, sala, radicado o numero de sentencia, fecha y magistrado ponente.
-  `.trim();
+  const type = match[1].toUpperCase();
+  const number = match[2].padStart(3, "0");
+  const year = match[3].length === 4 ? match[3].slice(-2) : match[3];
+  const fullYear = match[3].length === 4 ? match[3] : `20${match[3]}`;
+
+  return [
+    {
+      title: `Corte Constitucional ${type}${number}-${fullYear}`,
+      url: `${CC_RELATORIA_URL}/${fullYear}/${type}${number}-${year}.htm`
+    },
+    {
+      title: `Corte Constitucional ${type}-${number}-${fullYear}`,
+      url: `${CC_RELATORIA_URL}/${fullYear}/${type}-${number}-${year}.htm`
+    }
+  ];
+}
+
+async function verifyUrl(url) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "LitigARG/1.0"
+      }
+    });
+
+    clearTimeout(timeout);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export function shouldSearchJurisprudence(text = "") {
+  const normalized = cleanText(text).toLowerCase();
+
+  if (!normalized) return false;
+  if (/\b(SU|T|C)[-\s]?\d{1,4}[-\s]?\d{2,4}\b/i.test(normalized)) return true;
+  if (/\b(SP|AP|CP)\d{1,5}[-\s]?\d{4}\b/i.test(normalized)) return true;
+
+  return SEARCH_TRIGGERS.some(trigger => normalized.includes(trigger));
+}
+
+async function searchCorteSuprema(query) {
+  const cleanQuery = cleanText(query);
+
+  const graphQuery = `
+    {
+      getSearchResult(searchQuery:{
+        query: "${cleanQuery}"
+        typeOfQuery: "Penal"
+        start: 0
+        isExact: false
+        magistrate: ""
+        year: ""
+        autoSentencia: ""
+        order: "NEW_FIRST"
+        roomTutelas: ""
+        addedQueries: []
+      }) {
+        searchResults {
+          typeOfDocument
+          fiveParaphraseResult
+          title
+          onlinePath
+          doctor
+          ano
+          fechaCreacion
+          id
+          autoSentencia
+          leyesOArticulos
+        }
+        numOfResults
+      }
+    }
+  `;
+
+  const response = await fetch(CSJ_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ query: graphQuery })
+  });
+
+  if (!response.ok) {
+    throw new Error(`La Corte Suprema no respondio la busqueda oficial (${response.status}).`);
+  }
+
+  const data = await response.json();
+  const results = data.data?.getSearchResult?.searchResults || [];
+
+  return results
+    .slice(0, 5)
+    .map(result => normalizeCsjResult(result, cleanQuery));
+}
+
+async function searchCorteConstitucional(query) {
+  const references = [...new Set(cleanText(query).match(/\b(?:SU|T|C)[-\s]?\d{1,4}[-\s]?\d{2,4}\b/gi) || [])];
+  const sources = [];
+
+  for (const reference of references.slice(0, 4)) {
+    const candidates = getConstitutionalCandidates(reference);
+
+    for (const candidate of candidates) {
+      if (await verifyUrl(candidate.url)) {
+        sources.push({
+          ...candidate,
+          corporation: "Corte Constitucional",
+          sourceType: "jurisprudence",
+          verified: true,
+          official: true,
+          snippet: ""
+        });
+        break;
+      }
+    }
+  }
+
+  return sources;
+}
+
+export function formatSourcesForPrompt(sources = []) {
+  if (!sources.length) return "";
+
+  return sources
+    .map((source, index) => {
+      const parts = [
+        `${index + 1}. ${source.title}`,
+        source.corporation ? `Corporacion: ${source.corporation}` : "",
+        source.room ? `Sala: ${source.room}` : "",
+        source.year ? `Ano: ${source.year}` : "",
+        source.url ? `Enlace oficial: ${source.url}` : "",
+        source.snippet ? `Fragmento orientador: ${source.snippet}` : ""
+      ].filter(Boolean);
+
+      return parts.join("\n");
+    })
+    .join("\n\n");
 }
 
 export async function searchJurisprudence(query) {
@@ -46,52 +209,27 @@ export async function searchJurisprudence(query) {
     throw new Error("Consulta requerida");
   }
 
-  if (!isPerplexityConfigured()) {
-    return {
-      configured: false,
-      answer: "Perplexity todavia no esta configurado. Agrega PERPLEXITY_API_KEY en Render para activar la busqueda jurisprudencial.",
-      sources: [],
-      officialSources: []
-    };
-  }
+  const [csjSources, constitutionalSources] = await Promise.all([
+    searchCorteSuprema(query).catch(error => ({
+      error: error.message,
+      sources: []
+    })),
+    searchCorteConstitucional(query).catch(() => [])
+  ]);
 
-  const response = await fetch(PERPLEXITY_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      messages: [
-        {
-          role: "system",
-          content: "Eres un buscador juridico. Tu tarea es encontrar providencias reales, trazables y preferiblemente oficiales. No completes datos dudosos."
-        },
-        {
-          role: "user",
-          content: buildJurisprudencePrompt(query)
-        }
-      ]
-    })
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Error consultando Perplexity: ${response.status} ${detail}`);
-  }
-
-  const data = await response.json();
-  const sources = (data.search_results || [])
-    .filter(result => result.url)
-    .map(normalizeSearchResult);
+  const normalizedCsjSources = Array.isArray(csjSources) ? csjSources : [];
+  const errors = Array.isArray(csjSources) ? [] : [csjSources.error].filter(Boolean);
+  const sources = [...constitutionalSources, ...normalizedCsjSources];
 
   return {
     configured: true,
-    answer: data.choices?.[0]?.message?.content || "",
-    citations: data.citations || [],
+    provider: "official-repositories",
+    answer: sources.length
+      ? "Busqueda realizada en repositorios oficiales disponibles."
+      : "No encontre una fuente oficial verificable con esta consulta inicial.",
     sources,
     officialSources: sources.filter(source => source.official),
-    needsOfficialVerification: sources.some(source => !source.official)
+    needsOfficialVerification: sources.some(source => !source.verified),
+    errors
   };
 }

@@ -93,8 +93,12 @@ FORMATO DE RESPUESTA
 
 export async function generarRespuestaLegal(mensaje, options = {}) {
   const userName = (options.userName || "").trim();
+  const sourcesContext = (options.sourcesContext || "").trim();
   const userContext = userName
     ? `\n\nUsuario actual: ${userName}. Tratalo por ese nombre de forma natural cuando expliques lo que vas a hacer, lo que encontraste o como organizaras la respuesta. No repitas su nombre en cada parrafo; usalo solo cuando aporte cercania y claridad.`
+    : "";
+  const verifiedSourcesContext = sourcesContext
+    ? `\n\nFUENTES OFICIALES DISPONIBLES PARA ESTA RESPUESTA\n${sourcesContext}\n\nUsa estas fuentes solo si son pertinentes para la consulta. Cuando menciones una sentencia o fuente de esta lista, agrega el enlace Markdown al final del mismo parrafo, por ejemplo: [Fuente oficial](https://...). No cites como verificada una fuente que no aparezca aqui o que el usuario no haya aportado. Si las fuentes no son pertinentes, dilo y responde sin forzar citas.`
     : "";
 
   const completion = await client.chat.completions.create({
@@ -102,7 +106,7 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
     messages: [
       {
         role: "system",
-        content: `${MASTER_PROMPT}${userContext}`
+        content: `${MASTER_PROMPT}${userContext}${verifiedSourcesContext}`
       },
       {
         role: "user",

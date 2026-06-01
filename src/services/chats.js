@@ -25,6 +25,7 @@ function formatChat(chat, messages) {
         id: message.id,
         text: message.text,
         type: message.type,
+        sources: message.sources || [],
         created_at: message.created_at
       }))
   };
@@ -79,7 +80,7 @@ export async function listUserChats(userId) {
 
       const messagesResult = await client.query(
         `
-          SELECT id, chat_id, user_id, type, text, created_at
+          SELECT id, chat_id, user_id, type, text, sources, created_at
           FROM chat_messages
           WHERE user_id = $1 AND chat_id = ANY($2::text[])
           ORDER BY created_at ASC
@@ -117,12 +118,13 @@ export async function listUserChats(userId) {
     .map(chat => formatChat(chat, db.chatMessages));
 }
 
-export async function saveChatMessage(userId, { chatId, title, text, type }) {
+export async function saveChatMessage(userId, { chatId, title, text, type, sources = [] }) {
   if (isPostgresEnabled()) {
     return withDBClient(async client => {
       const now = new Date().toISOString();
       const cleanChatId = chatId ? String(chatId) : makeId("chat");
       const cleanTitle = (title || "Nuevo chat").slice(0, 60);
+      const cleanSources = Array.isArray(sources) ? sources : [];
 
       await client.query(
         `
@@ -140,10 +142,10 @@ export async function saveChatMessage(userId, { chatId, title, text, type }) {
 
       await client.query(
         `
-          INSERT INTO chat_messages (id, chat_id, user_id, type, text, created_at)
-          VALUES ($1, $2, $3, $4, $5, $6::timestamptz)
+          INSERT INTO chat_messages (id, chat_id, user_id, type, text, sources, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::timestamptz)
         `,
-        [makeId("msg"), cleanChatId, userId, type, text, now]
+        [makeId("msg"), cleanChatId, userId, type, text, JSON.stringify(cleanSources), now]
       );
 
       const premium = await isPremiumActive(userId);
@@ -171,7 +173,7 @@ export async function saveChatMessage(userId, { chatId, title, text, type }) {
         [cleanChatId, userId]
       );
       const messagesResult = await client.query(
-        "SELECT id, chat_id, user_id, type, text, created_at FROM chat_messages WHERE chat_id = $1 AND user_id = $2 ORDER BY created_at ASC",
+        "SELECT id, chat_id, user_id, type, text, sources, created_at FROM chat_messages WHERE chat_id = $1 AND user_id = $2 ORDER BY created_at ASC",
         [cleanChatId, userId]
       );
 
@@ -187,6 +189,7 @@ export async function saveChatMessage(userId, { chatId, title, text, type }) {
         userId: message.user_id,
         type: message.type,
         text: message.text,
+        sources: message.sources || [],
         created_at: message.created_at
       })));
     });
@@ -225,6 +228,7 @@ export async function saveChatMessage(userId, { chatId, title, text, type }) {
     userId: Number(userId),
     type,
     text,
+    sources: Array.isArray(sources) ? sources : [],
     created_at: now
   });
 
@@ -256,7 +260,7 @@ export async function renameUserChat(userId, chatId, title) {
       if (result.rows.length === 0) return null;
 
       const messagesResult = await client.query(
-        "SELECT id, chat_id, user_id, type, text, created_at FROM chat_messages WHERE chat_id = $1 AND user_id = $2 ORDER BY created_at ASC",
+        "SELECT id, chat_id, user_id, type, text, sources, created_at FROM chat_messages WHERE chat_id = $1 AND user_id = $2 ORDER BY created_at ASC",
         [String(chatId), userId]
       );
 
@@ -272,6 +276,7 @@ export async function renameUserChat(userId, chatId, title) {
         userId: message.user_id,
         type: message.type,
         text: message.text,
+        sources: message.sources || [],
         created_at: message.created_at
       })));
     });
