@@ -106,6 +106,19 @@ body{
   color:#FFD966;
 }
 
+.forgot-link{
+  background:transparent !important;
+  color:#D1D5DB !important;
+  padding:6px 0 0 !important;
+  font-size:13px;
+  font-weight:500 !important;
+}
+
+.forgot-link:hover{
+  background:transparent !important;
+  color:#FFFFFF !important;
+}
+
 /* APP */
 
 .app{
@@ -1301,6 +1314,7 @@ body{
   onkeypress="handleLoginEnter(event)"
 >
     <button id="authButton" onclick="handleAuth()">Ingresar</button>
+    <button class="forgot-link" id="forgotPasswordButton" onclick="openForgotPasswordModal()">Olvide mi contrasena</button>
 
     <div class="auth-toggle">
       <span id="authToggleText">¿No tienes cuenta?</span>
@@ -1486,6 +1500,27 @@ body{
   </div>
 </div>
 
+<div class="modal-overlay" id="forgotPasswordModal">
+  <div class="modal">
+    <h3 id="forgotPasswordTitle">Recuperar contrasena</h3>
+    <p id="forgotPasswordText">Escribe el correo de tu cuenta y te enviaremos un enlace temporal para crear una nueva contrasena.</p>
+
+    <div class="library-form" id="forgotRequestForm">
+      <input type="email" id="forgotEmail" placeholder="Correo de tu cuenta">
+      <button class="premium-action" onclick="requestPasswordReset()">Enviar enlace</button>
+    </div>
+
+    <div class="library-form" id="resetPasswordForm" style="display:none">
+      <input type="password" id="resetNewPassword" placeholder="Nueva contrasena">
+      <input type="password" id="resetConfirmPassword" placeholder="Confirmar nueva contrasena">
+      <button class="premium-action" onclick="submitPasswordReset()">Cambiar contrasena</button>
+    </div>
+
+    <div class="library-status" id="forgotPasswordStatus"></div>
+    <button class="modal-close" onclick="closeForgotPasswordModal()">Cerrar</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="accountModal">
   <div class="modal">
     <h3>Cuenta</h3>
@@ -1572,6 +1607,7 @@ const TOKEN_STORAGE_KEY = "litigarg_token";
 const FREE_NOTICE_STORAGE_KEY = "litigarg_free_notice_seen";
 
 let authMode = "login";
+let activeResetToken = "";
 
 let conversations = [];
 
@@ -1610,6 +1646,7 @@ function toggleAuthMode(){
     toggleText.innerText = "¿Ya tienes cuenta?";
     toggleButton.innerText = "Ingresar";
     usernameInput.style.display = "block";
+    document.getElementById("forgotPasswordButton").style.display = "none";
     return;
 
   }
@@ -1618,6 +1655,143 @@ function toggleAuthMode(){
   toggleText.innerText = "¿No tienes cuenta?";
   toggleButton.innerText = "Crear cuenta";
   usernameInput.style.display = "none";
+  document.getElementById("forgotPasswordButton").style.display = "block";
+
+}
+
+function openForgotPasswordModal(resetMode = false){
+
+  document.getElementById("forgotPasswordStatus").innerText = "";
+  document.getElementById("forgotPasswordStatus").classList.remove("error");
+  document.getElementById("forgotPasswordModal").style.display = "flex";
+
+  if(resetMode){
+    document.getElementById("forgotPasswordTitle").innerText = "Crear nueva contrasena";
+    document.getElementById("forgotPasswordText").innerText = "Escribe y confirma tu nueva contrasena para recuperar el acceso a LitigARG.";
+    document.getElementById("forgotRequestForm").style.display = "none";
+    document.getElementById("resetPasswordForm").style.display = "grid";
+    return;
+  }
+
+  document.getElementById("forgotPasswordTitle").innerText = "Recuperar contrasena";
+  document.getElementById("forgotPasswordText").innerText = "Escribe el correo de tu cuenta y te enviaremos un enlace temporal para crear una nueva contrasena.";
+  document.getElementById("forgotRequestForm").style.display = "grid";
+  document.getElementById("resetPasswordForm").style.display = "none";
+
+}
+
+function closeForgotPasswordModal(){
+
+  document.getElementById("forgotPasswordModal").style.display = "none";
+
+}
+
+function setForgotPasswordStatus(message,isError = false){
+
+  const status = document.getElementById("forgotPasswordStatus");
+  status.innerText = message || "";
+  status.classList.toggle("error", isError);
+
+}
+
+async function requestPasswordReset(){
+
+  const email = document.getElementById("forgotEmail").value.trim();
+
+  if(!email){
+    setForgotPasswordStatus("Escribe el correo de tu cuenta.", true);
+    return;
+  }
+
+  setForgotPasswordStatus("Enviando enlace...");
+
+  try{
+    const res = await fetch(API_URL + "/api/auth/forgot-password", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({ email })
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || "No se pudo enviar el enlace.");
+    }
+
+    setForgotPasswordStatus(data.message || "Revisa tu correo para continuar.");
+
+  }catch(error){
+    console.error(error);
+    setForgotPasswordStatus(error.message || "No se pudo enviar el enlace.", true);
+  }
+
+}
+
+async function submitPasswordReset(){
+
+  const newPassword = document.getElementById("resetNewPassword").value;
+  const confirmPassword = document.getElementById("resetConfirmPassword").value;
+
+  if(!activeResetToken){
+    setForgotPasswordStatus("El enlace de recuperacion no es valido.", true);
+    return;
+  }
+
+  if(!newPassword || newPassword.length < 6){
+    setForgotPasswordStatus("La nueva contrasena debe tener minimo 6 caracteres.", true);
+    return;
+  }
+
+  if(newPassword !== confirmPassword){
+    setForgotPasswordStatus("Las contrasenas no coinciden.", true);
+    return;
+  }
+
+  setForgotPasswordStatus("Cambiando contrasena...");
+
+  try{
+    const res = await fetch(API_URL + "/api/auth/reset-password", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        token: activeResetToken,
+        newPassword,
+        confirmPassword
+      })
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || "No se pudo cambiar la contrasena.");
+    }
+
+    activeResetToken = "";
+    document.getElementById("resetNewPassword").value = "";
+    document.getElementById("resetConfirmPassword").value = "";
+    setForgotPasswordStatus(data.message || "Contrasena actualizada. Ya puedes ingresar.");
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+  }catch(error){
+    console.error(error);
+    setForgotPasswordStatus(error.message || "No se pudo cambiar la contrasena.", true);
+  }
+
+}
+
+function handlePasswordResetLink(){
+
+  const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get("resetToken");
+
+  if(!resetToken) return;
+
+  activeResetToken = resetToken;
+  openForgotPasswordModal(true);
 
 }
 
@@ -2278,6 +2452,7 @@ function logout(){
   document.getElementById("accountMenu").classList.remove("open");
   document.getElementById("accountModal").style.display = "none";
   document.getElementById("libraryModal").style.display = "none";
+  document.getElementById("forgotPasswordModal").style.display = "none";
   updateLibraryAccess(false);
   closeMobileSidebar();
 
@@ -3196,6 +3371,7 @@ function typeBotMessage(div,text,onDone){
 </script>
 
 <script>
+handlePasswordResetLink();
 restoreSession();
 </script>
 

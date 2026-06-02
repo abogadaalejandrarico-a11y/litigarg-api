@@ -28,10 +28,12 @@ LitigARG puede enviar correos cuando:
 
 - se crea una cuenta,
 - se cambia una contrasena,
+- se solicita recuperar una contrasena,
 - se activa un plan Premium mensual o anual.
 
 Para activar los correos en Render, agregar estas variables de entorno:
 
+- `APP_URL`: URL publica de LitigARG, por ejemplo `https://litigarg-api.onrender.com`.
 - `SMTP_HOST`: servidor SMTP.
 - `SMTP_PORT`: puerto SMTP, normalmente `587`.
 - `SMTP_SECURE`: `true` si el proveedor exige conexion segura directa, si no `false`.

@@ -89,6 +89,22 @@ export async function sendPasswordChangedEmail(user) {
   });
 }
 
+export async function sendPasswordResetEmail(user, resetUrl) {
+  return sendEmail({
+    to: user.email,
+    subject: "Recupera tu contraseÃ±a de LitigARG",
+    text: `Hola ${user.username || ""},\n\nRecibimos una solicitud para recuperar la contraseÃ±a de tu cuenta LitigARG.\n\nUsa este enlace durante la proxima hora:\n${resetUrl}\n\nSi no solicitaste este cambio, puedes ignorar este correo.\n\nLitigARG`,
+    html: `
+      <p>Hola ${user.username || ""},</p>
+      <p>Recibimos una solicitud para recuperar la contraseÃ±a de tu cuenta <strong>LitigARG</strong>.</p>
+      <p>Usa este enlace durante la prÃ³xima hora:</p>
+      <p><a href="${resetUrl}" target="_blank" rel="noopener noreferrer">Restablecer contraseÃ±a</a></p>
+      <p>Si no solicitaste este cambio, puedes ignorar este correo.</p>
+      <p>LitigARG</p>
+    `
+  });
+}
+
 export async function sendPremiumPurchasedEmail(user, subscription) {
   const planName = getPlanName(subscription.plan);
   const purchasedAt = formatDate(subscription.created_at);

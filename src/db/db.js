@@ -44,9 +44,14 @@ async function ensureSchema() {
         email TEXT UNIQUE NOT NULL,
         password TEXT,
         password_hash TEXT,
+        reset_token_hash TEXT,
+        reset_token_expires_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT");
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMPTZ");
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS subscriptions (
@@ -249,6 +254,8 @@ export async function readDB() {
         email: row.email,
         password: row.password,
         password_hash: row.password_hash,
+        resetTokenHash: row.reset_token_hash,
+        resetTokenExpiresAt: toIso(row.reset_token_expires_at),
         created_at: toIso(row.created_at)
       })),
       subscriptions: subscriptions.rows.map(row => ({
@@ -315,13 +322,18 @@ export async function writeDB(data) {
     for (const user of data.users || []) {
       await client.query(
         `
-          INSERT INTO users (id, username, email, password, password_hash, created_at)
-          VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()))
+          INSERT INTO users (
+            id, username, email, password, password_hash,
+            reset_token_hash, reset_token_expires_at, created_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, COALESCE($8::timestamptz, NOW()))
           ON CONFLICT (id) DO UPDATE SET
             username = EXCLUDED.username,
             email = EXCLUDED.email,
             password = EXCLUDED.password,
             password_hash = EXCLUDED.password_hash,
+            reset_token_hash = EXCLUDED.reset_token_hash,
+            reset_token_expires_at = EXCLUDED.reset_token_expires_at,
             created_at = EXCLUDED.created_at
         `,
         [
@@ -330,6 +342,8 @@ export async function writeDB(data) {
           user.email,
           user.password || null,
           user.password_hash || null,
+          user.resetTokenHash || user.reset_token_hash || null,
+          user.resetTokenExpiresAt || user.reset_token_expires_at || null,
           user.created_at || null
         ]
       );

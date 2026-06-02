@@ -1,12 +1,40 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { readDB, writeDB } from "../db/db.js";
 import authMiddlewares from "../middlewares/auth.js";
 import { getActiveSubscription } from "../services/subscription.js";
-import { sendAccountCreatedEmail, sendPasswordChangedEmail } from "../services/email.js";
+import {
+  sendAccountCreatedEmail,
+  sendPasswordChangedEmail,
+  sendPasswordResetEmail
+} from "../services/email.js";
 
 const router = express.Router();
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function findUserByEmail(users, email) {
+  const cleanEmail = normalizeEmail(email);
+  return users.find(user => normalizeEmail(user.email) === cleanEmail);
+}
+
+function hashResetToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function getAppBaseUrl(req) {
+  const configuredUrl = process.env.APP_URL || process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL;
+
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, "");
+  }
+
+  return `${req.protocol}://${req.get("host")}`;
+}
 
 // 🔥 REGISTER
 router.post("/register", async (req, res) => {
@@ -67,7 +95,7 @@ router.post("/login", async (req, res) => {
 
     const db = await readDB();
 
-    const user = db.users.find(u => u.email === email);
+    const user = findUserByEmail(db.users, email);
 
     if (!user) {
       return res.status(400).json({ error: "Usuario no encontrado" });
@@ -105,6 +133,80 @@ router.post("/login", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error en login" });
+  }
+});
+
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    const db = await readDB();
+    const user = findUserByEmail(db.users, email);
+
+    if (user) {
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const resetUrl = `${getAppBaseUrl(req)}/?resetToken=${resetToken}`;
+
+      user.resetTokenHash = hashResetToken(resetToken);
+      user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      await writeDB(db);
+
+      sendPasswordResetEmail(user, resetUrl).catch(error =>
+        console.error("ERROR ENVIANDO CORREO DE RECUPERACION:", error)
+      );
+    }
+
+    res.json({
+      message: "Si el correo existe, recibirÃ¡s un enlace para recuperar tu contraseÃ±a."
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error solicitando recuperaciÃ³n de contraseÃ±a" });
+  }
+});
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    if (!token || !newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        error: "Escribe una contraseÃ±a nueva de mÃ­nimo 6 caracteres"
+      });
+    }
+
+    if (confirmPassword && newPassword !== confirmPassword) {
+      return res.status(400).json({
+        error: "La nueva contraseÃ±a y la confirmaciÃ³n no coinciden"
+      });
+    }
+
+    const tokenHash = hashResetToken(token);
+    const db = await readDB();
+    const user = db.users.find(u =>
+      (u.resetTokenHash || u.reset_token_hash) === tokenHash &&
+      new Date(u.resetTokenExpiresAt || u.reset_token_expires_at || 0) > new Date()
+    );
+
+    if (!user) {
+      return res.status(400).json({ error: "El enlace no es vÃ¡lido o ya expirÃ³" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    delete user.password_hash;
+    user.resetTokenHash = null;
+    user.resetTokenExpiresAt = null;
+    delete user.reset_token_hash;
+    delete user.reset_token_expires_at;
+    await writeDB(db);
+
+    sendPasswordChangedEmail(user).catch(error =>
+      console.error("ERROR ENVIANDO CORREO DE CONTRASEÃ‘A:", error)
+    );
+
+    res.json({ message: "ContraseÃ±a actualizada. Ya puedes iniciar sesiÃ³n." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error restableciendo contraseÃ±a" });
   }
 });
 
