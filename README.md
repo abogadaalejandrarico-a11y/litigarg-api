@@ -61,9 +61,11 @@ Regla de seguridad: LitigARG no debe tratar una providencia como verificada si n
 
 LitigARG puede guardar libros, PDFs, Word y textos para consulta interna.
 
-La administracion de la biblioteca esta restringida a la cuenta creadora. Por defecto se autoriza `litigarg@gmail.com`. Para cambiar o agregar administradores en Render, usar:
+La administración de la biblioteca y de la configuración interna de la IA está restringida a la cuenta creadora. Esa cuenta también queda exenta de pago y límites de uso. Por defecto se autoriza `litigarg@gmail.com`. Para cambiar o agregar administradores en Render, usar:
 
 - `LIBRARY_ADMIN_EMAILS`: correos separados por coma, por ejemplo `creadora@arg.com,socio@arg.com`.
+
+La configuración adicional de la IA se guarda en la tabla `ai_config` y se suma a las reglas base de LitigARG en cada respuesta.
 
 Rutas internas:
 

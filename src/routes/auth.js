@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { readDB, writeDB } from "../db/db.js";
 import authMiddlewares from "../middlewares/auth.js";
 import { getActiveSubscription } from "../services/subscription.js";
+import { isAdminUser } from "../services/adminAccess.js";
 import {
   sendAccountCreatedEmail,
   sendPasswordChangedEmail,
@@ -220,14 +221,22 @@ router.get("/me", authMiddlewares, async (req, res) => {
     }
 
     const subscription = await getActiveSubscription(user.id);
+    const admin = isAdminUser(user);
 
     res.json({
       user: {
         id: user.id,
         username: user.username || null,
-        email: user.email
+        email: user.email,
+        isAdmin: admin
       },
-      subscription: subscription
+      subscription: admin
+        ? {
+            plan: "admin",
+            status: "active",
+            expiresAt: null
+          }
+        : subscription
         ? {
             plan: subscription.plan,
             status: subscription.status,

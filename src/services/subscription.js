@@ -1,4 +1,5 @@
 import { readDB, writeDB } from "../db/db.js";
+import { isAdminUserId } from "./adminAccess.js";
 
 export function getPlanDays(plan) {
   if (plan === "premium_anual") return 365;
@@ -6,6 +7,8 @@ export function getPlanDays(plan) {
 }
 
 export async function isPremiumActive(userId) {
+  if (await isAdminUserId(userId)) return true;
+
   const sub = await getActiveSubscription(userId);
 
   if (!sub) return false;

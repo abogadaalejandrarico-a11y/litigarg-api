@@ -165,6 +165,15 @@ async function ensureSchema() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_config (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        custom_rules TEXT DEFAULT '',
+        updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     await client.query("COMMIT");
     schemaReady = true;
   } catch (error) {
@@ -195,6 +204,7 @@ async function readJsonDB() {
   db.chats = db.chats || [];
   db.chatMessages = db.chatMessages || [];
   db.jurisprudenceLibrary = db.jurisprudenceLibrary || [];
+  db.aiConfig = db.aiConfig || { customRules: "", updatedBy: null, updatedAt: null };
 
   return db;
 }

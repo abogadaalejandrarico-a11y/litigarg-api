@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
+import { getAiConfig } from "./aiConfig.js";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -105,6 +106,10 @@ FORMATO DE RESPUESTA
 - Si analizas documentos, organiza la respuesta en secciones como: HECHOS RELEVANTES, PROBLEMA JURIDICO, RIESGOS, OPORTUNIDADES DE DEFENSA, ESTRATEGIA y PREGUNTAS UTILES.
 `;
 
+export function getBasePrompt() {
+  return MASTER_PROMPT.trim();
+}
+
 export async function generarRespuestaLegal(mensaje, options = {}) {
   const userName = (options.userName || "").trim();
   const sourcesContext = (options.sourcesContext || "").trim();
@@ -119,12 +124,17 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
     ? `\n\nRESULTADO DE BÚSQUEDA OFICIAL PARA ESTA RESPUESTA\n${sourcesContext}\n\nEvalúa primero si estas fuentes responden exactamente al problema jurídico del usuario. En la respuesta debes indicar brevemente qué buscaste y qué encontraste. Usa solo las fuentes que sean realmente pertinentes y no cites más fuentes de las que uses en la respuesta. Cuando menciones una sentencia o fuente de esta lista, agrega el enlace Markdown al final del mismo párrafo, por ejemplo: [Fuente oficial](https://...). Si la fuente tiene extracto útil, inclúyelo dentro del cuerpo de la respuesta en un párrafo propio y con lenguaje práctico, por ejemplo: "Aquí te presento un extracto de la sentencia que puedes usar para sustentar ante el juez: ...". Luego explica cómo usar ese extracto en la solicitud o intervención oral. No lo escondas solo en las fuentes. No copies bloques excesivamente largos: selecciona o sintetiza el fragmento que sirva para sostener el argumento. No cites como verificada una fuente que no aparezca aquí o que el usuario no haya aportado. Si las fuentes disponibles no tratan directamente el punto pedido, dilo expresamente y explica que se requiere una búsqueda más específica en vez de presentar providencias apenas parecidas como si fueran suficientes.`
     : "";
 
+  const aiConfig = await getAiConfig();
+  const customRules = (aiConfig.customRules || "").trim()
+    ? `\n\nREGLAS ADICIONALES CONFIGURADAS POR LA ADMINISTRADORA\n${aiConfig.customRules.trim()}`
+    : "";
+
   const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       {
         role: "system",
-        content: `${MASTER_PROMPT}${userContext}${internalLibraryContext}${verifiedSourcesContext}`
+        content: `${MASTER_PROMPT}${customRules}${userContext}${internalLibraryContext}${verifiedSourcesContext}`
       },
       {
         role: "user",

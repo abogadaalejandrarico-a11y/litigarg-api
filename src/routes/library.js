@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import authMiddlewares from "../middlewares/auth.js";
+import { isAdminUser } from "../services/adminAccess.js";
 import { extractDocumentText, getLibraryTextLimit } from "../services/documentText.js";
 import {
   findRelevantDocuments,
@@ -17,15 +18,8 @@ const upload = multer({
   }
 });
 
-function getLibraryAdminEmails() {
-  return (process.env.LIBRARY_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "litigarg@gmail.com")
-    .split(",")
-    .map(email => email.trim().toLowerCase())
-    .filter(Boolean);
-}
-
 function canManageLibrary(user) {
-  return getLibraryAdminEmails().includes(String(user?.email || "").toLowerCase());
+  return isAdminUser(user);
 }
 
 function requireLibraryAdmin(req, res, next) {

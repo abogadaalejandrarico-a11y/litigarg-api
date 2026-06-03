@@ -214,6 +214,24 @@ body{
 .sidebar-footer{
   margin-top:auto;
   border-top:1px solid rgba(255,255,255,0.05);
+  padding:12px 0;
+}
+
+.admin-sidebar-button{
+  display:none;
+  width:calc(100% - 40px);
+  margin:8px 20px;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  background:#262626;
+  color:#FFFFFF;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.admin-sidebar-button:hover{
+  background:#333333;
 }
 
 .account-box{
@@ -1360,6 +1378,12 @@ body{
     <div class="chats" id="chatList"></div>
 
     <div class="sidebar-footer">
+      <button class="admin-sidebar-button" id="aiConfigButton" onclick="openAiConfigModal()">
+        Configuración IA
+      </button>
+      <button class="admin-sidebar-button" id="libraryMenuButton" onclick="openLibraryModal()">
+        Biblioteca
+      </button>
       <button class="premium-button" id="premiumButton" onclick="openPremiumModal()">
         Activar Premium
       </button>
@@ -1390,7 +1414,6 @@ body{
           <div class="account-menu-email" id="accountEmail">Usuario</div>
           <div class="account-menu-detail" id="accountExpiry">Consultando estado...</div>
           <button class="menu-action" onclick="openAccountDetails()">Cuenta</button>
-          <button class="menu-action" id="libraryMenuButton" onclick="openLibraryModal()" style="display:none">Biblioteca</button>
           <button class="logout-button" onclick="logout()">Cerrar sesión</button>
         </div>
       </div>
@@ -1604,6 +1627,26 @@ body{
     <div class="library-list" id="libraryList"></div>
 
     <button class="modal-close" onclick="closeLibraryModal()">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="aiConfigModal">
+  <div class="modal">
+    <h3>Configuración de la IA</h3>
+    <p>Consulta las reglas base de LitigARG y agrega instrucciones adicionales para afinar su comportamiento.</p>
+
+    <div class="library-form">
+      <label class="library-meta">Reglas base en ejecución</label>
+      <textarea id="aiBaseRules" readonly style="min-height:180px"></textarea>
+
+      <label class="library-meta">Reglas adicionales de la administradora</label>
+      <textarea id="aiCustomRules" placeholder="Agrega aquí nuevas reglas, criterios de estilo, límites o instrucciones estratégicas para LitigARG." style="min-height:180px"></textarea>
+
+      <button class="premium-action" onclick="saveAiConfig()">Guardar configuración</button>
+      <div class="library-status" id="aiConfigStatus"></div>
+    </div>
+
+    <button class="modal-close" onclick="closeAiConfigModal()">Cerrar</button>
   </div>
 </div>
 
@@ -1983,6 +2026,94 @@ function updateLibraryAccess(canManageLibrary){
   profileState.canManageLibrary = !!canManageLibrary;
   document.getElementById("libraryMenuButton").style.display =
     profileState.canManageLibrary ? "block" : "none";
+  document.getElementById("aiConfigButton").style.display =
+    profileState.canManageLibrary ? "block" : "none";
+
+}
+
+function openAiConfigModal(){
+
+  if(!profileState.canManageLibrary){
+    alert("Solo la cuenta administradora puede configurar la IA.");
+    return;
+  }
+
+  document.getElementById("aiConfigModal").style.display = "flex";
+  loadAiConfig();
+
+}
+
+function closeAiConfigModal(){
+
+  document.getElementById("aiConfigModal").style.display = "none";
+
+}
+
+function setAiConfigStatus(message,isError = false){
+
+  const status = document.getElementById("aiConfigStatus");
+  status.innerText = message || "";
+  status.classList.toggle("error", isError);
+
+}
+
+async function loadAiConfig(){
+
+  setAiConfigStatus("Cargando configuración...");
+
+  try{
+    const res = await fetch(API_URL + "/api/config/ai", {
+      headers:{
+        Authorization:"Bearer " + token
+      }
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || "No se pudo cargar la configuración.");
+    }
+
+    document.getElementById("aiBaseRules").value = data.baseRules || "";
+    document.getElementById("aiCustomRules").value = data.customRules || "";
+    setAiConfigStatus("");
+
+  }catch(error){
+    console.error(error);
+    setAiConfigStatus(error.message || "No se pudo cargar la configuración.", true);
+  }
+
+}
+
+async function saveAiConfig(){
+
+  setAiConfigStatus("Guardando configuración...");
+
+  try{
+    const res = await fetch(API_URL + "/api/config/ai", {
+      method:"PUT",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization:"Bearer " + token
+      },
+      body:JSON.stringify({
+        customRules:document.getElementById("aiCustomRules").value
+      })
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || "No se pudo guardar la configuración.");
+    }
+
+    document.getElementById("aiCustomRules").value = data.customRules || "";
+    setAiConfigStatus("Configuración guardada. Las nuevas reglas ya se aplican a LitigARG.");
+
+  }catch(error){
+    console.error(error);
+    setAiConfigStatus(error.message || "No se pudo guardar la configuración.", true);
+  }
 
 }
 
@@ -2143,6 +2274,7 @@ function togglePasswordForm(){
 
 function formatPlanName(plan){
 
+  if(plan === "admin") return "Administradora";
   if(plan === "premium_anual") return "Premium anual";
   if(plan === "premium_mensual") return "Premium mensual";
   return "Experiencia gratuita";
@@ -2201,17 +2333,18 @@ function updatePremiumButtons(isPremium){
 
   const sidebarButton = document.getElementById("premiumButton");
   const accountButton = document.getElementById("accountPremiumButton");
+  const isAdmin = profileState.plan === "Administradora";
 
   if(sidebarButton){
-    sidebarButton.disabled = !!isPremium;
-    sidebarButton.innerText = isPremium ? "Premium activo" : "Activar Premium";
-    sidebarButton.classList.toggle("active", !!isPremium);
+    sidebarButton.disabled = !!isPremium || isAdmin;
+    sidebarButton.innerText = isAdmin ? "Acceso administradora" : isPremium ? "Premium activo" : "Activar Premium";
+    sidebarButton.classList.toggle("active", !!isPremium || isAdmin);
   }
 
   if(accountButton){
-    accountButton.disabled = !!isPremium;
-    accountButton.innerText = isPremium ? "Premium activo" : "Cambiar a Premium";
-    accountButton.classList.toggle("active", !!isPremium);
+    accountButton.disabled = !!isPremium || isAdmin;
+    accountButton.innerText = isAdmin ? "Acceso administradora" : isPremium ? "Premium activo" : "Cambiar a Premium";
+    accountButton.classList.toggle("active", !!isPremium || isAdmin);
   }
 
 }
