@@ -20,15 +20,15 @@ La aplicación crea automáticamente las tablas:
 - `free_usage`: uso gratuito disponible por usuario.
 - `document_library`: libros, PDFs y materiales internos cargados para consulta.
 - `document_chunks`: fragmentos consultables de cada material interno.
-- `jurisprudence_library`: providencias y fuentes juridicas encontradas.
+- `jurisprudence_library`: providencias y fuentes jurídicas encontradas.
 
 ## Correos transaccionales
 
 LitigARG puede enviar correos cuando:
 
 - se crea una cuenta,
-- se cambia una contrasena,
-- se solicita recuperar una contrasena,
+- se cambia una contraseña,
+- se solicita recuperar una contraseña,
 - se activa un plan Premium mensual o anual.
 
 Para activar los correos en Render, agregar estas variables de entorno:
@@ -38,18 +38,18 @@ Para activar los correos en Render, agregar estas variables de entorno:
 - `SMTP_PORT`: puerto SMTP, normalmente `587`.
 - `SMTP_SECURE`: `true` si el proveedor exige conexion segura directa, si no `false`.
 - `SMTP_USER`: usuario del correo.
-- `SMTP_PASS`: contrasena o clave de aplicacion del correo.
+- `SMTP_PASS`: contraseña o clave de aplicación del correo.
 - `SMTP_FROM`: remitente visible, por ejemplo `"LitigARG" <notificaciones@tudominio.com>`.
 
 ## Busqueda jurisprudencial oficial
 
-LitigARG incluye un modulo inicial para buscar jurisprudencia en repositorios oficiales, sin depender de Perplexity.
+LitigARG incluye un módulo inicial para buscar jurisprudencia en repositorios oficiales, sin depender de Perplexity.
 
 Ruta interna:
 
 - `POST /api/jurisprudence/search`
 
-La busqueda usa o prepara enlaces verificables de estas fuentes:
+La búsqueda usa o prepara enlaces verificables de estas fuentes:
 
 - `corteconstitucional.gov.co`
 - `cortesuprema.gov.co`
@@ -75,15 +75,15 @@ Campos opcionales al subir:
 
 - `title`: titulo visible.
 - `author`: autor, por ejemplo Wilson Gomez.
-- `category`: categoria del material.
+- `category`: categoría del material.
 - `tags`: etiquetas separadas por coma.
-- `description`: descripcion breve.
+- `description`: descripción breve.
 
 Los fragmentos de biblioteca se usan como apoyo doctrinal, metodologico o tecnico. No se presentan como jurisprudencia oficial.
 
 ## Aprendizaje por correcciones
 
-Siguiente modulo pendiente: guardar retroalimentacion de usuarios sobre respuestas, especialmente correcciones, votos negativos y versiones corregidas. Esa informacion debe alimentar una tabla de patrones de mejora para ajustar instrucciones, biblioteca, ejemplos y evaluaciones internas sin modificar automaticamente la base juridica verificada.
+Siguiente módulo pendiente: guardar retroalimentación de usuarios sobre respuestas, especialmente correcciones, votos negativos y versiones corregidas. Esa información debe alimentar una tabla de patrones de mejora para ajustar instrucciones, biblioteca, ejemplos y evaluaciones internas sin modificar automáticamente la base jurídica verificada.
 
 Si estas variables no existen, LitigARG no envia correos, pero la app sigue funcionando.
 

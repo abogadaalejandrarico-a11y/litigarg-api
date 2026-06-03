@@ -156,11 +156,11 @@ router.post("/forgot-password", async (req, res) => {
     }
 
     res.json({
-      message: "Si el correo existe, recibirÃ¡s un enlace para recuperar tu contraseÃ±a."
+      message: "Si el correo existe, recibirás un enlace para recuperar tu contraseña."
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Error solicitando recuperaciÃ³n de contraseÃ±a" });
+    res.status(500).json({ error: "Error solicitando recuperación de contraseña" });
   }
 });
 
@@ -170,13 +170,13 @@ router.post("/reset-password", async (req, res) => {
 
     if (!token || !newPassword || newPassword.length < 6) {
       return res.status(400).json({
-        error: "Escribe una contraseÃ±a nueva de mÃ­nimo 6 caracteres"
+        error: "Escribe una contraseña nueva de mínimo 6 caracteres"
       });
     }
 
     if (confirmPassword && newPassword !== confirmPassword) {
       return res.status(400).json({
-        error: "La nueva contraseÃ±a y la confirmaciÃ³n no coinciden"
+        error: "La nueva contraseña y la confirmación no coinciden"
       });
     }
 
@@ -188,7 +188,7 @@ router.post("/reset-password", async (req, res) => {
     );
 
     if (!user) {
-      return res.status(400).json({ error: "El enlace no es vÃ¡lido o ya expirÃ³" });
+      return res.status(400).json({ error: "El enlace no es válido o ya expiró" });
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
@@ -200,13 +200,13 @@ router.post("/reset-password", async (req, res) => {
     await writeDB(db);
 
     sendPasswordChangedEmail(user).catch(error =>
-      console.error("ERROR ENVIANDO CORREO DE CONTRASEÃ‘A:", error)
+      console.error("ERROR ENVIANDO CORREO DE CONTRASEÑA:", error)
     );
 
-    res.json({ message: "ContraseÃ±a actualizada. Ya puedes iniciar sesiÃ³n." });
+    res.json({ message: "Contraseña actualizada. Ya puedes iniciar sesión." });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Error restableciendo contraseÃ±a" });
+    res.status(500).json({ error: "Error restableciendo contraseña" });
   }
 });
 

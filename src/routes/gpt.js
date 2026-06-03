@@ -147,7 +147,7 @@ router.post("/chat", authMiddlewares, async (req, res) => {
 router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req, res) => {
   try {
     const userId = req.user.userId;
-    const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigacion penal y argumentacion juridica.";
+    const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigación penal y argumentación jurídica.";
     const access = await checkAccess(userId);
 
     if (!access.allowed) {

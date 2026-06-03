@@ -10,8 +10,8 @@ const TOPIC_RULES = [
     keywords: ["control de garantias", "juez de control", "audiencia preliminar", "captura", "injerencia", "garante de derechos"]
   },
   {
-    topic: "argumentacion juridica",
-    keywords: ["argumentacion", "tesis", "premisa", "persuasion", "alegato", "teoria del caso"]
+    topic: "argumentación jurídica",
+    keywords: ["argumentacion", "argumentación", "tesis", "premisa", "persuasion", "persuasión", "alegato", "teoria del caso", "teoría del caso"]
   },
   {
     topic: "interrogatorio y contrainterrogatorio",

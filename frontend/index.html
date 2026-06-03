@@ -1314,7 +1314,7 @@ body{
   onkeypress="handleLoginEnter(event)"
 >
     <button id="authButton" onclick="handleAuth()">Ingresar</button>
-    <button class="forgot-link" id="forgotPasswordButton" onclick="openForgotPasswordModal()">Olvide mi contrasena</button>
+    <button class="forgot-link" id="forgotPasswordButton" onclick="openForgotPasswordModal()">Olvidé mi contraseña</button>
 
     <div class="auth-toggle">
       <span id="authToggleText">¿No tienes cuenta?</span>
@@ -1502,8 +1502,8 @@ body{
 
 <div class="modal-overlay" id="forgotPasswordModal">
   <div class="modal">
-    <h3 id="forgotPasswordTitle">Recuperar contrasena</h3>
-    <p id="forgotPasswordText">Escribe el correo de tu cuenta y te enviaremos un enlace temporal para crear una nueva contrasena.</p>
+    <h3 id="forgotPasswordTitle">Recuperar contraseña</h3>
+    <p id="forgotPasswordText">Escribe el correo de tu cuenta y te enviaremos un enlace temporal para crear una nueva contraseña.</p>
 
     <div class="library-form" id="forgotRequestForm">
       <input type="email" id="forgotEmail" placeholder="Correo de tu cuenta">
@@ -1511,9 +1511,9 @@ body{
     </div>
 
     <div class="library-form" id="resetPasswordForm" style="display:none">
-      <input type="password" id="resetNewPassword" placeholder="Nueva contrasena">
-      <input type="password" id="resetConfirmPassword" placeholder="Confirmar nueva contrasena">
-      <button class="premium-action" onclick="submitPasswordReset()">Cambiar contrasena</button>
+      <input type="password" id="resetNewPassword" placeholder="Nueva contraseña">
+      <input type="password" id="resetConfirmPassword" placeholder="Confirmar nueva contraseña">
+      <button class="premium-action" onclick="submitPasswordReset()">Cambiar contraseña</button>
     </div>
 
     <div class="library-status" id="forgotPasswordStatus"></div>
@@ -1563,7 +1563,7 @@ body{
 
       <div class="account-row">
         <label>Historial</label>
-        <p id="historyPolicy">Gratis guarda los ultimos 5 chats. Premium guarda hasta 100 chats.</p>
+        <p id="historyPolicy">Gratis guarda los últimos 5 chats. Premium guarda hasta 100 chats.</p>
         <button onclick="clearChatHistory()">Borrar historial</button>
       </div>
     </div>
@@ -1666,15 +1666,15 @@ function openForgotPasswordModal(resetMode = false){
   document.getElementById("forgotPasswordModal").style.display = "flex";
 
   if(resetMode){
-    document.getElementById("forgotPasswordTitle").innerText = "Crear nueva contrasena";
-    document.getElementById("forgotPasswordText").innerText = "Escribe y confirma tu nueva contrasena para recuperar el acceso a LitigARG.";
+    document.getElementById("forgotPasswordTitle").innerText = "Crear nueva contraseña";
+    document.getElementById("forgotPasswordText").innerText = "Escribe y confirma tu nueva contraseña para recuperar el acceso a LitigARG.";
     document.getElementById("forgotRequestForm").style.display = "none";
     document.getElementById("resetPasswordForm").style.display = "grid";
     return;
   }
 
-  document.getElementById("forgotPasswordTitle").innerText = "Recuperar contrasena";
-  document.getElementById("forgotPasswordText").innerText = "Escribe el correo de tu cuenta y te enviaremos un enlace temporal para crear una nueva contrasena.";
+  document.getElementById("forgotPasswordTitle").innerText = "Recuperar contraseña";
+  document.getElementById("forgotPasswordText").innerText = "Escribe el correo de tu cuenta y te enviaremos un enlace temporal para crear una nueva contraseña.";
   document.getElementById("forgotRequestForm").style.display = "grid";
   document.getElementById("resetPasswordForm").style.display = "none";
 
@@ -1735,21 +1735,21 @@ async function submitPasswordReset(){
   const confirmPassword = document.getElementById("resetConfirmPassword").value;
 
   if(!activeResetToken){
-    setForgotPasswordStatus("El enlace de recuperacion no es valido.", true);
+    setForgotPasswordStatus("El enlace de recuperación no es válido.", true);
     return;
   }
 
   if(!newPassword || newPassword.length < 6){
-    setForgotPasswordStatus("La nueva contrasena debe tener minimo 6 caracteres.", true);
+    setForgotPasswordStatus("La nueva contraseña debe tener mínimo 6 caracteres.", true);
     return;
   }
 
   if(newPassword !== confirmPassword){
-    setForgotPasswordStatus("Las contrasenas no coinciden.", true);
+    setForgotPasswordStatus("Las contraseñas no coinciden.", true);
     return;
   }
 
-  setForgotPasswordStatus("Cambiando contrasena...");
+  setForgotPasswordStatus("Cambiando contraseña...");
 
   try{
     const res = await fetch(API_URL + "/api/auth/reset-password", {
@@ -1767,18 +1767,18 @@ async function submitPasswordReset(){
     const data = await res.json();
 
     if(!res.ok){
-      throw new Error(data.error || "No se pudo cambiar la contrasena.");
+      throw new Error(data.error || "No se pudo cambiar la contraseña.");
     }
 
     activeResetToken = "";
     document.getElementById("resetNewPassword").value = "";
     document.getElementById("resetConfirmPassword").value = "";
-    setForgotPasswordStatus(data.message || "Contrasena actualizada. Ya puedes ingresar.");
+    setForgotPasswordStatus(data.message || "Contraseña actualizada. Ya puedes ingresar.");
     window.history.replaceState({}, document.title, window.location.pathname);
 
   }catch(error){
     console.error(error);
-    setForgotPasswordStatus(error.message || "No se pudo cambiar la contrasena.", true);
+    setForgotPasswordStatus(error.message || "No se pudo cambiar la contraseña.", true);
   }
 
 }
@@ -3045,7 +3045,7 @@ async function analyzeSelectedFile(){
     formData.append("file", file);
     formData.append(
       "prompt",
-      "Analiza este documento desde la defensa penal. Identifica hechos relevantes, debilidades probatorias, riesgos, oportunidades de contradiccion, posibles argumentos y preguntas utiles para audiencia."
+      "Analiza este documento desde la defensa penal. Identifica hechos relevantes, debilidades probatorias, riesgos, oportunidades de contradicción, posibles argumentos y preguntas útiles para audiencia."
     );
 
     const res = await fetch(

@@ -11,7 +11,7 @@ const TOPIC_RULES = [
   },
   {
     topic: "debido proceso",
-    keywords: ["debido proceso", "defensa tecnica", "contradiccion", "legalidad", "tutela judicial efectiva"]
+    keywords: ["debido proceso", "defensa tecnica", "defensa técnica", "contradiccion", "contradicción", "legalidad", "tutela judicial efectiva"]
   },
   {
     topic: "presuncion de inocencia",
