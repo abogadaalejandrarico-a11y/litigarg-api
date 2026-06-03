@@ -174,6 +174,21 @@ async function ensureSchema() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS project_authorship (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        project_name TEXT NOT NULL,
+        authorship_code TEXT UNIQUE NOT NULL,
+        creator_reference TEXT NOT NULL,
+        collaborator_reference TEXT,
+        authorship_note TEXT NOT NULL,
+        base_rules_hash TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     await client.query("COMMIT");
     schemaReady = true;
   } catch (error) {
@@ -205,6 +220,7 @@ async function readJsonDB() {
   db.chatMessages = db.chatMessages || [];
   db.jurisprudenceLibrary = db.jurisprudenceLibrary || [];
   db.aiConfig = db.aiConfig || { customRules: "", updatedBy: null, updatedAt: null };
+  db.projectAuthorship = db.projectAuthorship || null;
 
   return db;
 }

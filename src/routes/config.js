@@ -3,6 +3,7 @@ import authMiddlewares from "../middlewares/auth.js";
 import { isAdminUser } from "../services/adminAccess.js";
 import { getAiConfig, saveAiConfig } from "../services/aiConfig.js";
 import { getBasePrompt } from "../services/openai.js";
+import { ensureAuthorshipRecord } from "../services/authorship.js";
 
 const router = express.Router();
 
@@ -17,11 +18,14 @@ function requireAdmin(req, res, next) {
 router.get("/ai", authMiddlewares, requireAdmin, async (req, res) => {
   try {
     const config = await getAiConfig();
+    const authorship = await ensureAuthorshipRecord(getBasePrompt());
 
     res.json({
       baseRules: getBasePrompt(),
       customRules: config.customRules || "",
-      updatedAt: config.updatedAt || null
+      updatedAt: config.updatedAt || null,
+      authorshipHash: authorship.base_rules_hash || authorship.baseRulesHash || null,
+      authorshipCode: authorship.authorship_code || authorship.authorshipCode || null
     });
   } catch (error) {
     console.error("ERROR CARGANDO CONFIGURACION IA:", error);

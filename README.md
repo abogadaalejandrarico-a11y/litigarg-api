@@ -67,6 +67,17 @@ La administración de la biblioteca y de la configuración interna de la IA est�
 
 La configuración adicional de la IA se guarda en la tabla `ai_config` y se suma a las reglas base de LitigARG en cada respuesta.
 
+## Registro interno de autoría
+
+LitigARG mantiene un registro interno de autoría no visible al usuario final:
+
+- Documento versionado: `docs/autoria_litigarg.md`.
+- Tabla interna: `project_authorship`.
+- Código interno: `LITIGARG-ARG-W-2026`.
+- Hash SHA-256 de las reglas base de la IA, actualizado desde el módulo administrativo.
+
+Este registro existe para trazabilidad histórica y técnica del origen del sistema.
+
 Rutas internas:
 
 - `POST /api/library/upload`: sube un documento y lo divide en fragmentos consultables.
