@@ -5,7 +5,7 @@ Este documento deja constancia interna y versionada del origen del proyecto Liti
 ## Identificación del proyecto
 
 - Nombre del proyecto: LitigARG
-- Código interno de autoría: LITIGARG-ARG-W-2026
+- Código interno de autoría: LITIGARG-WA-2026
 - Inicio del proyecto: abril de 2026
 - Cuenta administradora principal: litigarg@gmail.com
 - Correo corporativo operativo: litigarg@argabogados.co
@@ -40,7 +40,7 @@ El sistema mantiene una marca interna no visible al usuario final mediante:
 - Historial de commits en GitHub.
 - Registro documental versionado en este archivo.
 - Tabla interna `project_authorship` en la base de datos.
-- Código interno `LITIGARG-ARG-W-2026`.
+- Código interno `LITIGARG-WA-2026`.
 - Hash SHA-256 de las reglas base de la IA, calculado y actualizado desde el módulo administrativo.
 
 ## Alcance

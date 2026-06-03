@@ -5,7 +5,7 @@ const AUTHORSHIP_ID = 1;
 
 export const INTERNAL_AUTHORSHIP = {
   projectName: "LitigARG",
-  authorshipCode: "LITIGARG-ARG-W-2026",
+  authorshipCode: "LITIGARG-WA-2026",
   creatorReference:
     "Jeniffer Alejandra Rico Pineda, correo principal abogada.alejandrarico@gmail.com, coautora, creadora, codirectora del proyecto, responsable del desarrollo funcional y administradora de los correos litigarg@gmail.com y litigarg@argabogados.co",
   collaboratorReference:

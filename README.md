@@ -73,7 +73,7 @@ LitigARG mantiene un registro interno de autoría no visible al usuario final:
 
 - Documento versionado: `docs/autoria_litigarg.md`.
 - Tabla interna: `project_authorship`.
-- Código interno: `LITIGARG-ARG-W-2026`.
+- Código interno: `LITIGARG-WA-2026`.
 - Hash SHA-256 de las reglas base de la IA, actualizado desde el módulo administrativo.
 
 Este registro existe para trazabilidad histórica y técnica del origen del sistema.
