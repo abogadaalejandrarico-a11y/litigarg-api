@@ -631,7 +631,7 @@ body{
   background:#262626;
 }
 
-.input-box input{
+.input-box textarea{
   flex:1;
   padding:16px 18px;
   border:none;
@@ -639,6 +639,12 @@ body{
   background:#1A1A1A;
   color:white;
   font-size:15px;
+  font-family:inherit;
+  line-height:1.45;
+  min-height:54px;
+  max-height:150px;
+  resize:none;
+  overflow-y:auto;
 }
 
 .input-box button{
@@ -1242,10 +1248,12 @@ body{
     gap:8px;
   }
 
-  .input-box input{
+  .input-box textarea{
     min-width:0;
     padding:12px;
     font-size:13px;
+    min-height:44px;
+    max-height:118px;
   }
 
   .input-box button{
@@ -1450,12 +1458,13 @@ body{
           &#128206;
         </button>
 
-        <input
-          type="text"
+        <textarea
           id="msgInput"
           placeholder="Escribe LitigARG en que puede ayudarte..."
-	  onkeypress="handleChatEnter(event)"
-        >
+          rows="1"
+	        onkeydown="handleChatEnter(event)"
+          oninput="autoResizeChatInput()"
+        ></textarea>
 
         <button onclick="sendMessage()">
           Enviar
@@ -1810,11 +1819,24 @@ async function handleAuth(){
 
 function handleChatEnter(event){
 
-  if(event.key === "Enter"){
+  if(event.key === "Enter" && !event.shiftKey){
+
+    event.preventDefault();
 
     sendMessage();
 
   }
+
+}
+
+function autoResizeChatInput(){
+
+  const input = document.getElementById("msgInput");
+
+  if(!input) return;
+
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 150) + "px";
 
 }
 
@@ -1823,6 +1845,7 @@ function setPrompt(text){
   const input = document.getElementById("msgInput");
 
   input.value = text;
+  autoResizeChatInput();
 
   input.focus();
 
@@ -2937,6 +2960,7 @@ if(!currentConversation){
   addMessageToConversation(conversationId,text,"user");
 
   input.value = "";
+  autoResizeChatInput();
 
   const typing = document.createElement("div");
 
