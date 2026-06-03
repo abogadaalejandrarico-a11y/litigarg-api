@@ -6,12 +6,30 @@ Este documento deja constancia interna y versionada del origen del proyecto Liti
 
 - Nombre del proyecto: LitigARG
 - Código interno de autoría: LITIGARG-ARG-W-2026
+- Inicio del proyecto: abril de 2026
 - Cuenta administradora principal: litigarg@gmail.com
 - Correo corporativo operativo: litigarg@argabogados.co
 
+## Coautoría y roles
+
+### Jeniffer Alejandra Rico Pineda
+
+- Correo principal: abogada.alejandrarico@gmail.com
+- Correos administrados dentro del proyecto: litigarg@gmail.com y litigarg@argabogados.co
+- Rol: coautora, creadora, codirectora del proyecto y responsable del desarrollo funcional de LitigARG.
+
+### Wilson Gómez Betancur
+
+- Correo principal: abogadogomez72@gmail.com
+- Rol: coautor, codirector del proyecto y responsable del desarrollo metodológico, estratégico, de reglas y doctrinal de LitigARG.
+
 ## Nota de autoría
 
-LitigARG fue creada, dirigida y desarrollada por su administradora principal, en compañía de W como coautor y aportante metodológico, doctrinal y estratégico del proyecto.
+LitigARG fue creada y desarrollada como proyecto conjunto de Jeniffer Alejandra Rico Pineda y Wilson Gómez Betancur.
+
+Jeniffer Alejandra Rico Pineda participa como coautora, creadora, codirectora del proyecto, responsable del desarrollo funcional y administradora de los correos principales asociados al sistema.
+
+Wilson Gómez Betancur participa como coautor, codirector del proyecto y responsable del desarrollo metodológico, estratégico, doctrinal y de reglas que orientan la especialización jurídica de LitigARG.
 
 El propósito de LitigARG es ofrecer una inteligencia artificial especializada en litigación penal colombiana, argumentación jurídica, técnica de audiencias, análisis documental y apoyo estratégico, con uso de materiales internos autorizados, biblioteca documental y reglas de comportamiento configurables.
 
@@ -37,5 +55,5 @@ Para fortalecer este registro, se recomienda conservar periódicamente:
 - Capturas o exportaciones de los commits principales.
 - Copia de las reglas base y reglas adicionales.
 - Hashes de documentos relevantes.
-- Contrato, acuerdo o documento privado que describa los aportes de la administradora principal y de W.
+- Contrato, acuerdo o documento privado que describa los aportes de Jeniffer Alejandra Rico Pineda y Wilson Gómez Betancur.
 - Depósito o registro ante entidad competente si se desea una prueba externa de fecha cierta.

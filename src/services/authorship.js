@@ -6,11 +6,25 @@ const AUTHORSHIP_ID = 1;
 export const INTERNAL_AUTHORSHIP = {
   projectName: "LitigARG",
   authorshipCode: "LITIGARG-ARG-W-2026",
-  creatorReference: "Cuenta administradora principal: litigarg@gmail.com",
-  collaboratorReference: "W, coautor y aportante metodológico del proyecto",
+  creatorReference:
+    "Jeniffer Alejandra Rico Pineda, correo principal abogada.alejandrarico@gmail.com, coautora, creadora, codirectora del proyecto, responsable del desarrollo funcional y administradora de los correos litigarg@gmail.com y litigarg@argabogados.co",
+  collaboratorReference:
+    "Wilson Gómez Betancur, correo principal abogadogomez72@gmail.com, coautor, codirector del proyecto, responsable del desarrollo metodológico, estratégico, de reglas y doctrinal",
   authorshipNote:
-    "Registro interno de autoría: LitigARG fue creada, dirigida y desarrollada por su administradora principal, en compañía de W como coautor y aportante metodológico, doctrinal y estratégico. Este registro no se muestra al usuario final y existe para trazabilidad interna del origen, evolución y configuración del sistema.",
+    "Registro interno de autoría: LitigARG fue creada y desarrollada como proyecto conjunto de Jeniffer Alejandra Rico Pineda y Wilson Gómez Betancur. Jeniffer Alejandra Rico Pineda participa como coautora, creadora, codirectora del proyecto, responsable del desarrollo funcional y administradora de los correos principales asociados al sistema. Wilson Gómez Betancur participa como coautor, codirector del proyecto y responsable del desarrollo metodológico, estratégico, doctrinal y de reglas que orientan la especialización jurídica de LitigARG. Este registro no se muestra al usuario final y existe para trazabilidad interna del origen, evolución y configuración del sistema.",
   metadata: {
+    projectStart: "abril de 2026",
+    creator: {
+      name: "Jeniffer Alejandra Rico Pineda",
+      primaryEmail: "abogada.alejandrarico@gmail.com",
+      projectEmails: ["litigarg@gmail.com", "litigarg@argabogados.co"],
+      role: "Coautora, creadora, codirectora y responsable del desarrollo funcional"
+    },
+    collaborator: {
+      name: "Wilson Gómez Betancur",
+      primaryEmail: "abogadogomez72@gmail.com",
+      role: "Coautor, codirector y responsable del desarrollo metodológico, estratégico, de reglas y doctrinal"
+    },
     purpose: "Trazabilidad interna de autoría y evolución del sistema LitigARG",
     visibility: "internal",
     userFacing: false
