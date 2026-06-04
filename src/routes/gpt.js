@@ -10,6 +10,7 @@ import {
   formatDocumentContext
 } from "../services/documentLibrary.js";
 import {
+  addInlineSourceLinks,
   formatSourcesForPrompt,
   searchJurisprudence,
   shouldSearchJurisprudence
@@ -129,10 +130,11 @@ router.post("/chat", authMiddlewares, async (req, res) => {
           ? "Busqueda oficial realizada: no se encontraron providencias suficientemente pertinentes para citar con seguridad en esta respuesta. Debes decirlo expresamente y no inventar ni forzar jurisprudencia."
           : ""
     });
+    const linkedAnswer = addInlineSourceLinks(respuesta, sources);
     const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 
     res.json({
-      answer: respuesta,
+      answer: linkedAnswer,
       sources,
       isPremium: access.premium,
       freeUsage: updatedFreeUsage
@@ -187,10 +189,11 @@ ${documentText}
           ? "Busqueda oficial realizada: no se encontraron providencias suficientemente pertinentes para citar con seguridad en esta respuesta. Debes decirlo expresamente y no inventar ni forzar jurisprudencia."
           : ""
     });
+    const linkedAnswer = addInlineSourceLinks(respuesta, sources);
     const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
 
     res.json({
-      answer: respuesta,
+      answer: linkedAnswer,
       fileName: req.file.originalname,
       sources,
       isPremium: access.premium,

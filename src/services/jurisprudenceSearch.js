@@ -373,6 +373,90 @@ export function formatSourcesForPrompt(sources = []) {
     .join("\n\n");
 }
 
+function escapeRegExp(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeReference(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getSourceAliases(source = {}) {
+  const text = normalizeReference([
+    source.title,
+    source.name,
+    source.reference,
+    source.fileName,
+    source.snippet
+  ].filter(Boolean).join(" "));
+
+  const aliases = new Set();
+
+  [
+    /\b(?:CSJ\s+)?(?:SP|AP|CP)[-\s]?\d{1,6}[-\s]?\d{4}\b/gi,
+    /\b(?:Corte Constitucional\s+)?(?:SU|T|C)[-\s]?\d{1,4}[-\s]?\d{2,4}\b/gi,
+    /\brad(?:icado)?\.?\s*\d{4,8}\b/gi
+  ].forEach(pattern => {
+    (text.match(pattern) || []).forEach(match => {
+      const clean = match.replace(/\s+/g, " ").trim();
+      aliases.add(clean);
+      aliases.add(clean.replace(/([A-Z]{1,3})\s+/i, "$1-"));
+      aliases.add(clean.replace(/([A-Z]{1,3})-/i, "$1 "));
+    });
+  });
+
+  if (source.title && source.title.length <= 90) {
+    aliases.add(normalizeReference(source.title));
+  }
+
+  return [...aliases]
+    .filter(alias => alias.length >= 5)
+    .sort((a, b) => b.length - a.length);
+}
+
+function buildAliasPattern(alias) {
+  return escapeRegExp(alias)
+    .replace(/\\\-/g, "[-\\s]?")
+    .replace(/\\ /g, "\\s+");
+}
+
+export function addInlineSourceLinks(answer = "", sources = []) {
+  let linkedAnswer = String(answer || "");
+  const linkedAliases = new Set();
+
+  (Array.isArray(sources) ? sources : [])
+    .filter(source => source?.url)
+    .forEach(source => {
+      const aliases = getSourceAliases(source);
+
+      for (const alias of aliases) {
+        if (linkedAliases.has(alias.toLowerCase())) continue;
+
+        const pattern = new RegExp(`(${buildAliasPattern(alias)})(?![^\\[]*\\]\\()`, "i");
+
+        if (!pattern.test(linkedAnswer)) continue;
+
+        linkedAnswer = linkedAnswer.replace(pattern, match => {
+          linkedAliases.add(alias.toLowerCase());
+
+          if (match.includes("[Fuente oficial](")) {
+            return match;
+          }
+
+          return `${match} [Fuente oficial](${source.url})`;
+        });
+
+        break;
+      }
+    });
+
+  return linkedAnswer;
+}
+
 export async function searchJurisprudence(query) {
   if (!query || !query.trim()) {
     throw new Error("Consulta requerida");
