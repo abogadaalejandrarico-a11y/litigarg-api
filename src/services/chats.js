@@ -1,15 +1,14 @@
 import { isPostgresEnabled, readDB, withDBClient, writeDB } from "../db/db.js";
-import { isPremiumActive } from "./subscription.js";
-
-const FREE_CHAT_LIMIT = 5;
-const PREMIUM_CHAT_LIMIT = 100;
+import { getUserPlan } from "./subscription.js";
+import { getPlanChatLimit } from "./plans.js";
 
 function makeId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function getChatLimit(isPremium) {
-  return isPremium ? PREMIUM_CHAT_LIMIT : FREE_CHAT_LIMIT;
+async function getChatLimit(userId) {
+  const plan = await getUserPlan(userId);
+  return getPlanChatLimit(plan.id, { admin: plan.id === "admin" });
 }
 
 function formatChat(chat, messages) {
@@ -32,8 +31,7 @@ function formatChat(chat, messages) {
 }
 
 async function enforceHistoryLimit(db, userId) {
-  const premium = await isPremiumActive(userId);
-  const limit = getChatLimit(premium);
+  const limit = await getChatLimit(userId);
 
   const userChats = (db.chats || [])
     .filter(chat => Number(chat.userId) === Number(userId))
@@ -53,8 +51,7 @@ async function enforceHistoryLimit(db, userId) {
 export async function listUserChats(userId) {
   if (isPostgresEnabled()) {
     return withDBClient(async client => {
-      const premium = await isPremiumActive(userId);
-      const limit = getChatLimit(premium);
+      const limit = await getChatLimit(userId);
 
       const chatsResult = await client.query(
         `
@@ -148,8 +145,7 @@ export async function saveChatMessage(userId, { chatId, title, text, type, sourc
         [makeId("msg"), cleanChatId, userId, type, text, JSON.stringify(cleanSources), now]
       );
 
-      const premium = await isPremiumActive(userId);
-      const limit = getChatLimit(premium);
+      const limit = await getChatLimit(userId);
       const oldChats = await client.query(
         `
           SELECT id

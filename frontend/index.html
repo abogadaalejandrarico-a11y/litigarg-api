@@ -623,6 +623,17 @@ body{
   background:#111111;
 }
 
+.usage-status{
+  min-height:18px;
+  margin:0 0 8px 48px;
+  color:#9CA3AF;
+  font-size:12px;
+}
+
+.usage-status strong{
+  color:#F5C542;
+}
+
 .input-box{
   display:flex;
   gap:15px;
@@ -833,6 +844,14 @@ body{
   color:#F5C542;
   font-size:20px;
   font-weight:700;
+}
+
+.plan-card small{
+  display:block;
+  margin-top:10px;
+  color:#B8B8B8;
+  font-size:12px;
+  line-height:1.45;
 }
 
 .modal-close{
@@ -1262,6 +1281,11 @@ body{
     padding-bottom:calc(10px + env(safe-area-inset-bottom));
   }
 
+  .usage-status{
+    margin:0 0 7px 46px;
+    font-size:11px;
+  }
+
   .input-box{
     gap:8px;
   }
@@ -1467,6 +1491,8 @@ body{
 
     <div class="input-container">
 
+      <div class="usage-status" id="usageStatus"></div>
+
       <div class="input-box">
 
         <input
@@ -1507,14 +1533,16 @@ body{
     <p>Continúa usando LitigARG con acceso a tus consultas y análisis documental para litigación penal.</p>
 
     <div class="plan-options">
-      <button class="plan-card" onclick="activatePremium('premium_mensual')">
-        <strong>Mensual</strong>
-        <span>$20.900</span>
+      <button class="plan-card" onclick="activatePremium('pro_mensual')">
+        <strong>Pro</strong>
+        <span>$20.900/mes</span>
+        <small>50 preguntas, 20 archivos y 20 chats guardados.</small>
       </button>
 
-      <button class="plan-card" onclick="activatePremium('premium_anual')">
-        <strong>Anual</strong>
-        <span>$209.000</span>
+      <button class="plan-card" onclick="activatePremium('plus_mensual')">
+        <strong>Plus</strong>
+        <span>$49.900/mes</span>
+        <small>100 preguntas, 50 archivos y 100 chats guardados.</small>
       </button>
     </div>
 
@@ -1766,7 +1794,7 @@ async function requestPasswordReset(){
       body:JSON.stringify({ email })
     });
 
-    const data = await res.json();
+	    const data = await res.json();
 
     if(!res.ok){
       throw new Error(data.error || "No se pudo enviar el enlace.");
@@ -2275,10 +2303,40 @@ function togglePasswordForm(){
 function formatPlanName(plan){
 
   if(plan === "admin") return "Administradora";
-  if(plan === "premium_anual") return "Premium anual";
-  if(plan === "premium_mensual") return "Premium mensual";
+  if(plan === "plus_mensual" || plan === "premium_anual") return "Plus";
+  if(plan === "pro_mensual" || plan === "premium_mensual") return "Pro";
   return "Experiencia gratuita";
 
+}
+
+function formatResetTime(value){
+  if(!value) return "";
+
+  return new Date(value).toLocaleString("es-CO", {
+    timeZone:"America/Bogota",
+    weekday:"short",
+    hour:"numeric",
+    minute:"2-digit"
+  });
+}
+
+function updateUsageStatus(usage){
+  const status = document.getElementById("usageStatus");
+  if(!status || !usage) return;
+
+  const messages = usage.messages || {};
+  const files = usage.files || {};
+
+  if(messages.limit === null){
+    status.innerHTML = "<strong>Uso administradora:</strong> sin límites diarios.";
+    return;
+  }
+
+  status.innerHTML =
+    "<strong>" + (usage.plan?.name || "Plan") + ":</strong> " +
+    "preguntas " + messages.remaining + "/" + messages.limit +
+    " · archivos " + files.remaining + "/" + files.limit +
+    " · se recarga " + formatResetTime(messages.resetsAt);
 }
 
 function formatDate(dateValue){
@@ -2337,13 +2395,13 @@ function updatePremiumButtons(isPremium){
 
   if(sidebarButton){
     sidebarButton.disabled = !!isPremium || isAdmin;
-    sidebarButton.innerText = isAdmin ? "Acceso administradora" : isPremium ? "Premium activo" : "Activar Premium";
+    sidebarButton.innerText = isAdmin ? "Acceso administradora" : isPremium ? "Plan activo" : "Ver planes";
     sidebarButton.classList.toggle("active", !!isPremium || isAdmin);
   }
 
   if(accountButton){
     accountButton.disabled = !!isPremium || isAdmin;
-    accountButton.innerText = isAdmin ? "Acceso administradora" : isPremium ? "Premium activo" : "Cambiar a Premium";
+    accountButton.innerText = isAdmin ? "Acceso administradora" : isPremium ? "Plan activo" : "Cambiar plan";
     accountButton.classList.toggle("active", !!isPremium || isAdmin);
   }
 
@@ -2368,9 +2426,10 @@ async function loadProfile(){
     const email = data.user?.email || "Usuario";
     const username = data.user?.username || "";
     const subscription = data.subscription;
+    const planInfo = data.plan;
     const planName = subscription
       ? formatPlanName(subscription.plan)
-      : "Experiencia gratuita";
+      : planInfo?.name || "Experiencia gratuita";
 
     profileState = {
       email,
@@ -2383,6 +2442,8 @@ async function loadProfile(){
     document.getElementById("accountAvatar").innerText = getInitial(username,email);
     document.getElementById("accountName").innerText = profileState.username;
     document.getElementById("accountEmail").innerText = email;
+    document.getElementById("historyPolicy").innerText =
+      "Tu plan guarda hasta " + (planInfo?.chatLimit || 5) + " chats.";
     loadLibraryAccess();
 
     if(subscription){
@@ -3127,9 +3188,11 @@ if(!currentConversation){
       }
     );
 
-    const data = await res.json();
+	    const data = await res.json();
 
-document.getElementById("typing")?.remove();
+      updateUsageStatus(data.usage);
+	
+	document.getElementById("typing")?.remove();
 
 if(res.status === 403){
 
@@ -3216,9 +3279,11 @@ async function analyzeSelectedFile(){
       }
     );
 
-    const data = await res.json();
+	    const data = await res.json();
 
-    document.getElementById("typing")?.remove();
+      updateUsageStatus(data.usage);
+	
+	    document.getElementById("typing")?.remove();
 
     if(res.status === 403){
 

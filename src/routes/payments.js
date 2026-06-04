@@ -8,13 +8,13 @@ import { sendPremiumPurchasedEmail } from "../services/email.js";
 const router = express.Router();
 
 const plans = {
-  premium_mensual: {
+  pro_mensual: {
     price: 20900,
-    title: "LitigARG Premium Mensual"
+    title: "LitigARG Pro Mensual"
   },
-  premium_anual: {
-    price: 209000,
-    title: "LitigARG Premium Anual"
+  plus_mensual: {
+    price: 49900,
+    title: "LitigARG Plus Mensual"
   }
 };
 

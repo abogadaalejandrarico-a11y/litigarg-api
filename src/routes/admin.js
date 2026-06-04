@@ -22,7 +22,7 @@ router.post("/activate-premium", verifyAdmin, async (req, res) => {
     return res.status(400).json({ error: "Faltan datos" });
   }
 
-  if (!["premium_mensual", "premium_anual"].includes(plan)) {
+  if (!["pro_mensual", "plus_mensual"].includes(plan)) {
     return res.status(400).json({ error: "Plan invalido" });
   }
 

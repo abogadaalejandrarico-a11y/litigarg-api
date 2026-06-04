@@ -1,8 +1,8 @@
 import express from "express";
 import multer from "multer";
 import authMiddlewares from "../middlewares/auth.js";
-import { isPremiumActive } from "../services/subscription.js";
-import { getFreeUsage, incrementFreeUsage } from "../services/usage.js";
+import { getUserPlan } from "../services/subscription.js";
+import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
 import { extractDocumentText } from "../services/documentText.js";
 import { generarRespuestaLegal } from "../services/openai.js";
 import {
@@ -29,29 +29,34 @@ const upload = multer({
   }
 });
 
-async function checkAccess(userId) {
-  const premium = await isPremiumActive(userId);
-  const freeUsage = await getFreeUsage(userId);
+async function checkAccess(userId, kind = "message") {
+  const plan = await getUserPlan(userId);
+  const dailyAccess = await canUseDailyFeature(userId, kind);
 
-  if (!premium && freeUsage.remaining <= 0) {
+  if (!dailyAccess.allowed) {
     return {
       allowed: false,
-      premium,
-      freeUsage
+      plan,
+      usage: dailyAccess.usage,
+      counter: dailyAccess.counter
     };
   }
 
   return {
     allowed: true,
-    premium,
-    freeUsage
+    plan,
+    usage: dailyAccess.usage,
+    counter: dailyAccess.counter
   };
 }
 
-async function finishUsage(userId, premium, freeUsage) {
-  return premium
-    ? freeUsage
-    : await incrementFreeUsage(userId);
+async function finishUsage(userId, kind = "message") {
+  return incrementDailyUsage(userId, kind);
+}
+
+function limitMessage(kind, planName) {
+  const feature = kind === "file" ? "analisis de archivos" : "preguntas";
+  return `Se acabo tu limite diario de ${feature} del plan ${planName}. Podras volver a usarlo cuando se recargue tu cupo diario o cambiar a un plan superior para ampliar tus limites.`;
 }
 
 async function getUserName(userId) {
@@ -106,14 +111,14 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     }
 
     const userId = req.user.userId;
-
-    const access = await checkAccess(userId);
+    const access = await checkAccess(userId, "message");
 
     if (!access.allowed) {
       return res.status(403).json({
-        code: "FREE_LIMIT_REACHED",
-        error: "Se acabó tu límite de uso gratuito. Para seguir disfrutando de LitigARG, debes adquirir la experiencia Premium o esperar 24 horas para acceder nuevamente al uso gratuito limitado.",
-        freeUsage: access.freeUsage
+        code: "DAILY_LIMIT_REACHED",
+        error: limitMessage("message", access.plan.name),
+        usage: access.usage,
+        freeUsage: access.usage.messages
       });
     }
 
@@ -131,13 +136,15 @@ router.post("/chat", authMiddlewares, async (req, res) => {
           : ""
     });
     const linkedAnswer = addInlineSourceLinks(respuesta, sources);
-    const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
+    const updatedUsage = await finishUsage(userId, "message");
 
     res.json({
       answer: linkedAnswer,
       sources,
-      isPremium: access.premium,
-      freeUsage: updatedFreeUsage
+      isPremium: access.plan.id !== "free",
+      plan: access.plan,
+      usage: updatedUsage,
+      freeUsage: updatedUsage.messages
     });
 
   } catch (error) {
@@ -149,14 +156,15 @@ router.post("/chat", authMiddlewares, async (req, res) => {
 router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req, res) => {
   try {
     const userId = req.user.userId;
-    const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigación penal y argumentación jurídica.";
-    const access = await checkAccess(userId);
+    const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigacion penal y argumentacion juridica.";
+    const access = await checkAccess(userId, "file");
 
     if (!access.allowed) {
       return res.status(403).json({
-        code: "FREE_LIMIT_REACHED",
-        error: "Se acabó tu límite de uso gratuito. Para seguir disfrutando de LitigARG, debes adquirir la experiencia Premium o esperar 24 horas para acceder nuevamente al uso gratuito limitado.",
-        freeUsage: access.freeUsage
+        code: "DAILY_LIMIT_REACHED",
+        error: limitMessage("file", access.plan.name),
+        usage: access.usage,
+        freeUsage: access.usage.messages
       });
     }
 
@@ -190,14 +198,16 @@ ${documentText}
           : ""
     });
     const linkedAnswer = addInlineSourceLinks(respuesta, sources);
-    const updatedFreeUsage = await finishUsage(userId, access.premium, access.freeUsage);
+    const updatedUsage = await finishUsage(userId, "file");
 
     res.json({
       answer: linkedAnswer,
       fileName: req.file.originalname,
       sources,
-      isPremium: access.premium,
-      freeUsage: updatedFreeUsage
+      isPremium: access.plan.id !== "free",
+      plan: access.plan,
+      usage: updatedUsage,
+      freeUsage: updatedUsage.messages
     });
   } catch (error) {
     console.error("ERROR ANALIZANDO ARCHIVO:", error);

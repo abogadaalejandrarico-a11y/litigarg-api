@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getPlanName as getConfiguredPlanName } from "./plans.js";
 
 let transporter;
 
@@ -36,9 +37,7 @@ function formatDate(dateValue) {
 }
 
 function getPlanName(plan) {
-  if (plan === "premium_anual") return "Premium anual";
-  if (plan === "premium_mensual") return "Premium mensual";
-  return "Premium";
+  return getConfiguredPlanName(plan);
 }
 
 async function sendEmail({ to, subject, text, html }) {
