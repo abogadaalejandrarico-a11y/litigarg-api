@@ -122,6 +122,7 @@ function scoreChunk(chunk, query = "") {
 
 export async function saveLibraryDocument({ file, text, userId, title, author, category, tags, description }) {
   const cleanTitle = (title || file.originalname || "Documento de biblioteca").trim();
+  const cleanFileName = (file.originalname || cleanTitle).trim();
   const cleanTags = parseTags(tags);
   const chunks = chunkText(text);
   const preview = text.slice(0, 800);
@@ -132,6 +133,15 @@ export async function saveLibraryDocument({ file, text, userId, title, author, c
 
   if (isPostgresEnabled()) {
     return withDBClient(async client => {
+      const duplicate = await client.query(
+        "SELECT id, title, file_name FROM document_library WHERE LOWER(file_name) = LOWER($1) OR LOWER(title) = LOWER($2) LIMIT 1",
+        [cleanFileName, cleanTitle]
+      );
+
+      if (duplicate.rows[0]) {
+        throw new Error("Este documento ya existe en la biblioteca. Si quieres reemplazarlo, elimina primero el anterior.");
+      }
+
       const documentResult = await client.query(
         `
           INSERT INTO document_library (
@@ -143,7 +153,7 @@ export async function saveLibraryDocument({ file, text, userId, title, author, c
         `,
         [
           cleanTitle,
-          file.originalname || cleanTitle,
+          cleanFileName,
           file.mimetype || null,
           author || null,
           category || null,
@@ -183,12 +193,21 @@ export async function saveLibraryDocument({ file, text, userId, title, author, c
   db.documentLibrary = db.documentLibrary || [];
   db.documentChunks = db.documentChunks || [];
 
+  const duplicate = db.documentLibrary.find(document =>
+    String(document.fileName || "").toLowerCase() === cleanFileName.toLowerCase() ||
+    String(document.title || "").toLowerCase() === cleanTitle.toLowerCase()
+  );
+
+  if (duplicate) {
+    throw new Error("Este documento ya existe en la biblioteca. Si quieres reemplazarlo, elimina primero el anterior.");
+  }
+
   const documentId = `doc_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   const now = new Date().toISOString();
   const document = {
     id: documentId,
     title: cleanTitle,
-    fileName: file.originalname || cleanTitle,
+    fileName: cleanFileName,
     mimeType: file.mimetype || null,
     author: author || null,
     category: category || null,
@@ -347,4 +366,45 @@ export async function listLibraryDocuments() {
     ...document,
     chunks: (db.documentChunks || []).filter(chunk => chunk.documentId === document.id).length
   }));
+}
+
+export async function deleteLibraryDocument(documentId) {
+  if (!documentId) {
+    throw new Error("Documento requerido");
+  }
+
+  if (isPostgresEnabled()) {
+    return withDBClient(async client => {
+      const result = await client.query(
+        "DELETE FROM document_library WHERE id = $1 RETURNING id, title",
+        [documentId]
+      );
+
+      if (!result.rows[0]) {
+        throw new Error("Documento no encontrado");
+      }
+
+      return {
+        id: result.rows[0].id,
+        title: result.rows[0].title
+      };
+    });
+  }
+
+  const db = await readDB();
+  const document = (db.documentLibrary || []).find(item => String(item.id) === String(documentId));
+
+  if (!document) {
+    throw new Error("Documento no encontrado");
+  }
+
+  db.documentLibrary = (db.documentLibrary || []).filter(item => String(item.id) !== String(documentId));
+  db.documentChunks = (db.documentChunks || []).filter(chunk => String(chunk.documentId) !== String(documentId));
+
+  await writeDB(db);
+
+  return {
+    id: document.id,
+    title: document.title
+  };
 }

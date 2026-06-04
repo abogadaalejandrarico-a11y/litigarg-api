@@ -5,6 +5,7 @@ import { isAdminUser } from "../services/adminAccess.js";
 import { extractDocumentText, getLibraryTextLimit } from "../services/documentText.js";
 import {
   findRelevantDocuments,
+  deleteLibraryDocument,
   formatDocumentContext,
   listLibraryDocuments,
   saveLibraryDocument
@@ -94,6 +95,22 @@ router.post("/search", authMiddlewares, requireLibraryAdmin, async (req, res) =>
   } catch (error) {
     console.error("ERROR BUSCANDO EN BIBLIOTECA:", error);
     res.status(500).json({ error: "Error buscando en biblioteca" });
+  }
+});
+
+router.delete("/:id", authMiddlewares, requireLibraryAdmin, async (req, res) => {
+  try {
+    const document = await deleteLibraryDocument(req.params.id);
+
+    res.json({
+      message: "Documento eliminado de biblioteca",
+      document
+    });
+  } catch (error) {
+    console.error("ERROR ELIMINANDO DOCUMENTO DE BIBLIOTECA:", error);
+    res.status(500).json({
+      error: error.message || "Error eliminando documento de biblioteca"
+    });
   }
 });
 

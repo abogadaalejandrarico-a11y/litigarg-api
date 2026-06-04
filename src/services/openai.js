@@ -126,16 +126,14 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
     : "";
 
   const aiConfig = await getAiConfig();
-  const customRules = (aiConfig.customRules || "").trim()
-    ? `\n\nREGLAS ADICIONALES CONFIGURADAS POR LA ADMINISTRADORA\n${aiConfig.customRules.trim()}`
-    : "";
+  const activeRules = (aiConfig.customRules || MASTER_PROMPT).trim();
 
   const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       {
         role: "system",
-        content: `${MASTER_PROMPT}${customRules}${userContext}${internalLibraryContext}${verifiedSourcesContext}`
+        content: `${activeRules}${userContext}${internalLibraryContext}${verifiedSourcesContext}`
       },
       {
         role: "user",

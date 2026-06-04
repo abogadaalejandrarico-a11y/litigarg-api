@@ -22,6 +22,7 @@ router.get("/ai", authMiddlewares, requireAdmin, async (req, res) => {
 
     res.json({
       baseRules: getBasePrompt(),
+      activeRules: config.customRules || getBasePrompt(),
       customRules: config.customRules || "",
       updatedAt: config.updatedAt || null,
       authorshipHash: authorship.base_rules_hash || authorship.baseRulesHash || null,
@@ -35,9 +36,9 @@ router.get("/ai", authMiddlewares, requireAdmin, async (req, res) => {
 
 router.put("/ai", authMiddlewares, requireAdmin, async (req, res) => {
   try {
-    const { customRules } = req.body;
+    const { activeRules, customRules } = req.body;
     const config = await saveAiConfig({
-      customRules,
+      customRules: activeRules ?? customRules,
       userId: req.user.userId
     });
 

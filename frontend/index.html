@@ -1061,6 +1061,94 @@ body{
   border-radius:12px;
 }
 
+.workspace-modal{
+  width:min(1180px, calc(100vw - 42px));
+  height:min(780px, calc(100vh - 42px));
+  background:#F7F7F7;
+  color:#111111;
+  display:flex;
+  flex-direction:column;
+}
+
+.workspace-modal h3{
+  color:#111111;
+}
+
+.workspace-modal p,
+.workspace-modal .library-meta{
+  color:#4B5563;
+}
+
+.workspace-content{
+  flex:1;
+  min-height:0;
+  display:grid;
+  gap:16px;
+  overflow:hidden;
+}
+
+.workspace-content.two-column{
+  grid-template-columns:minmax(280px, 360px) 1fr;
+}
+
+.workspace-panel{
+  min-height:0;
+  overflow:auto;
+  background:#FFFFFF;
+  border:1px solid #E5E7EB;
+  border-radius:12px;
+  padding:16px;
+}
+
+.workspace-modal input,
+.workspace-modal textarea{
+  background:#FFFFFF;
+  color:#111111;
+  border:1px solid #D1D5DB;
+}
+
+.workspace-modal textarea{
+  min-height:0;
+}
+
+.rules-editor{
+  height:100%;
+  min-height:420px;
+  resize:none;
+  line-height:1.55;
+}
+
+#aiCustomRules{
+  min-height:560px !important;
+  resize:vertical;
+  line-height:1.55;
+}
+
+.workspace-modal .library-item{
+  background:#FFFFFF;
+  border-color:#E5E7EB;
+  color:#111111;
+  display:grid;
+  gap:8px;
+}
+
+.library-item-header{
+  display:flex;
+  gap:10px;
+  justify-content:space-between;
+  align-items:flex-start;
+}
+
+.danger-action{
+  border:none;
+  border-radius:8px;
+  padding:8px 10px;
+  background:#B30000;
+  color:#FFFFFF;
+  cursor:pointer;
+  font-weight:700;
+}
+
 .library-item strong{
   display:block;
   margin-bottom:4px;
@@ -1370,6 +1458,23 @@ body{
     max-height:calc(100vh - 40px);
     overflow-y:auto;
     padding:20px;
+  }
+
+  .workspace-modal{
+    width:100vw;
+    height:100dvh;
+    max-height:100dvh;
+    border-radius:0;
+  }
+
+  .workspace-content,
+  .workspace-content.two-column{
+    grid-template-columns:1fr;
+    overflow:auto;
+  }
+
+  .rules-editor{
+    min-height:60vh;
   }
 
   .plan-options{
@@ -1713,7 +1818,7 @@ body{
 </div>
 
 <div class="modal-overlay" id="libraryModal">
-  <div class="modal">
+  <div class="modal workspace-modal">
     <h3>Biblioteca interna</h3>
     <p>Sube libros, PDFs y materiales autorizados para que LitigARG los consulte como apoyo interno en sus respuestas.</p>
 
@@ -1739,7 +1844,7 @@ body{
 </div>
 
 <div class="modal-overlay" id="aiConfigModal">
-  <div class="modal">
+  <div class="modal workspace-modal">
     <h3>Configuración de la IA</h3>
     <p>Consulta las reglas base de LitigARG y agrega instrucciones adicionales para afinar su comportamiento.</p>
 
@@ -2146,7 +2251,19 @@ function openAiConfigModal(){
     return;
   }
 
-  document.getElementById("aiConfigModal").style.display = "flex";
+  const modal = document.getElementById("aiConfigModal");
+  modal.style.display = "flex";
+  const baseRules = document.getElementById("aiBaseRules");
+  if(baseRules){
+    baseRules.style.display = "none";
+    if(baseRules.previousElementSibling){
+      baseRules.previousElementSibling.style.display = "none";
+    }
+  }
+  const rulesBox = document.getElementById("aiCustomRules");
+  if(rulesBox?.previousElementSibling){
+    rulesBox.previousElementSibling.innerText = "Reglas activas de LitigARG";
+  }
   loadAiConfig();
 
 }
@@ -2182,8 +2299,8 @@ async function loadAiConfig(){
       throw new Error(data.error || "No se pudo cargar la configuración.");
     }
 
-    document.getElementById("aiBaseRules").value = data.baseRules || "";
-    document.getElementById("aiCustomRules").value = data.customRules || "";
+	    document.getElementById("aiBaseRules").value = "";
+	    document.getElementById("aiCustomRules").value = data.activeRules || data.customRules || data.baseRules || "";
     setAiConfigStatus("");
 
   }catch(error){
@@ -2205,7 +2322,7 @@ async function saveAiConfig(){
         Authorization:"Bearer " + token
       },
       body:JSON.stringify({
-        customRules:document.getElementById("aiCustomRules").value
+	        activeRules:document.getElementById("aiCustomRules").value
       })
     });
 
@@ -2278,12 +2395,17 @@ function renderLibraryDocuments(documents){
       doc.chunks ? doc.chunks + " fragmentos" : ""
     ].filter(Boolean).join(" · ");
 
-    return `
-      <div class="library-item">
-        <strong>${escapeHtml(doc.title || doc.fileName || "Documento")}</strong>
-        <div class="library-meta">${parts || "Material interno"}</div>
-      </div>
-    `;
+	    return `
+	      <div class="library-item">
+	        <div class="library-item-header">
+	          <div>
+	            <strong>${escapeHtml(doc.title || doc.fileName || "Documento")}</strong>
+	            <div class="library-meta">${parts || "Material interno"}</div>
+	          </div>
+	          <button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button>
+	        </div>
+	      </div>
+	    `;
   }).join("");
 
 }
@@ -3405,6 +3527,38 @@ async function analyzeSelectedFile(){
 
   }
 
+}
+
+async function deleteLibraryDocument(documentId){
+  if(!documentId) return;
+
+  if(!confirm("¿Quieres eliminar este documento de la biblioteca interna?")){
+    return;
+  }
+
+  setLibraryStatus("Eliminando documento...");
+
+  try{
+    const res = await fetch(API_URL + "/api/library/" + encodeURIComponent(documentId), {
+      method:"DELETE",
+      headers:{
+        Authorization:"Bearer " + token
+      }
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || "No se pudo eliminar el documento.");
+    }
+
+    setLibraryStatus("Documento eliminado de la biblioteca.");
+    loadLibraryDocuments();
+
+  }catch(error){
+    console.error(error);
+    setLibraryStatus(error.message || "No se pudo eliminar el documento.", true);
+  }
 }
 
 // ADD MESSAGE
