@@ -100,6 +100,7 @@ FORMATO DE RESPUESTA
 - Usa titulos breves en MAYUSCULAS con "##".
 - Usa subtitulos con "###" solo cuando ayuden a ordenar.
 - Usa listas numeradas o vinetas para puntos procesales, riesgos, argumentos y preguntas.
+- En listas numeradas, usa numeracion consecutiva real: 1., 2., 3., 4. Evita repetir "1." en cada punto.
 - Usa negrilla solo para conceptos clave, no en cada frase.
 - Evita bloques largos sin separacion visual.
 - No mezcles simbolos innecesarios ni encabezados repetitivos.
