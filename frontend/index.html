@@ -802,6 +802,10 @@ body{
   box-shadow:0 30px 90px rgba(0,0,0,0.65);
 }
 
+.plans-modal{
+  width:min(920px, calc(100vw - 32px));
+}
+
 .modal h3{
   font-size:22px;
   margin-bottom:8px;
@@ -815,7 +819,7 @@ body{
 
 .plan-options{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:14px;
   margin:22px 0;
 }
@@ -828,10 +832,22 @@ body{
   padding:18px;
   cursor:pointer;
   text-align:left;
+  min-height:260px;
+  display:flex;
+  flex-direction:column;
 }
 
 .plan-card:hover{
   border-color:#F5C542;
+}
+
+.plan-card.free-plan{
+  cursor:default;
+}
+
+.plan-card.featured-plan{
+  border-color:rgba(245,197,66,0.75);
+  box-shadow:0 0 0 1px rgba(245,197,66,0.2);
 }
 
 .plan-card strong{
@@ -852,6 +868,39 @@ body{
   color:#B8B8B8;
   font-size:12px;
   line-height:1.45;
+}
+
+.plan-card ul{
+  margin:16px 0 18px 18px;
+  padding:0;
+  color:#D1D5DB;
+  font-size:13px;
+  line-height:1.55;
+}
+
+.plan-card li{
+  margin:7px 0;
+}
+
+.plan-action{
+  margin-top:auto;
+  width:100%;
+  border:none;
+  border-radius:10px;
+  padding:11px;
+  background:#B30000;
+  color:white;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.plan-action.secondary{
+  background:#2C2C2C;
+}
+
+.plan-action.gold{
+  background:#F5C542;
+  color:#111111;
 }
 
 .modal-close{
@@ -1046,6 +1095,10 @@ body{
   }
 
   .welcome-grid{
+    grid-template-columns:1fr;
+  }
+
+  .plan-options{
     grid-template-columns:1fr;
   }
 
@@ -1409,7 +1462,7 @@ body{
         Biblioteca
       </button>
       <button class="premium-button" id="premiumButton" onclick="openPremiumModal()">
-        Activar Premium
+        Ver planes
       </button>
     </div>
 
@@ -1528,22 +1581,49 @@ body{
 </div>
 
 <div class="modal-overlay" id="premiumModal">
-  <div class="modal">
-    <h3>Elige tu experiencia Premium</h3>
-    <p>Continúa usando LitigARG con acceso a tus consultas y análisis documental para litigación penal.</p>
+  <div class="modal plans-modal">
+    <h3>Elige tu plan LitigARG</h3>
+    <p>Compara las opciones y elige el acceso que mejor se acomode a tu ritmo de trabajo.</p>
 
     <div class="plan-options">
-      <button class="plan-card" onclick="activatePremium('pro_mensual')">
+      <div class="plan-card free-plan">
+        <strong>Gratis</strong>
+        <span>$0</span>
+        <small>Para conocer LitigARG y probar sus funciones principales.</small>
+        <ul>
+          <li>Hasta 8 preguntas al dia.</li>
+          <li>Hasta 8 archivos al dia.</li>
+          <li>Guarda hasta 5 chats.</li>
+          <li>Acceso limitado con recarga diaria.</li>
+        </ul>
+        <button class="plan-action secondary" onclick="closePremiumModal()">Seguir gratis</button>
+      </div>
+
+      <div class="plan-card featured-plan">
         <strong>Pro</strong>
         <span>$20.900/mes</span>
-        <small>50 preguntas, 20 archivos y 20 chats guardados.</small>
-      </button>
+        <small>Para uso frecuente en consultas, audiencias y analisis documental.</small>
+        <ul>
+          <li>Hasta 50 preguntas al dia.</li>
+          <li>Hasta 20 archivos al dia.</li>
+          <li>Guarda hasta 20 chats.</li>
+          <li>Mayor capacidad para trabajo diario.</li>
+        </ul>
+        <button class="plan-action" onclick="activatePremium('pro_mensual')">Elegir Pro</button>
+      </div>
 
-      <button class="plan-card" onclick="activatePremium('plus_mensual')">
+      <div class="plan-card">
         <strong>Plus</strong>
         <span>$49.900/mes</span>
-        <small>100 preguntas, 50 archivos y 100 chats guardados.</small>
-      </button>
+        <small>Para trabajo intensivo, revision de documentos y mayor historial.</small>
+        <ul>
+          <li>Hasta 100 preguntas al dia.</li>
+          <li>Hasta 50 archivos al dia.</li>
+          <li>Guarda hasta 100 chats.</li>
+          <li>Mayor margen para litigacion continua.</li>
+        </ul>
+        <button class="plan-action gold" onclick="activatePremium('plus_mensual')">Elegir Plus</button>
+      </div>
     </div>
 
     <button class="modal-close" onclick="closePremiumModal()">Ahora no</button>
@@ -1553,9 +1633,9 @@ body{
 <div class="modal-overlay" id="freeNoticeModal">
   <div class="modal">
     <h3>Experiencia gratuita</h3>
-    <p>Tu experiencia gratuita tiene un límite de uso. Cuando se agote, deberás adquirir la experiencia Premium para seguir disfrutando de LitigARG sin interrupciones.</p>
+    <p>Tu experiencia gratuita tiene limites diarios de preguntas y archivos. Cuando se agoten, puedes esperar la recarga diaria o elegir un plan Pro o Plus.</p>
 
-    <button class="premium-action" onclick="closeFreeNotice(); openPremiumModal()">Ver Premium</button>
+    <button class="premium-action" onclick="closeFreeNotice(); openPremiumModal()">Ver planes</button>
     <button class="modal-close" onclick="closeFreeNotice()">Continuar gratis</button>
   </div>
 </div>
@@ -1618,7 +1698,7 @@ body{
       <div class="account-row">
         <label>Plan</label>
         <strong id="profilePlan">Experiencia gratuita</strong>
-        <button class="premium-action" id="accountPremiumButton" onclick="closeAccountDetails(); openPremiumModal()">Cambiar a Premium</button>
+        <button class="premium-action" id="accountPremiumButton" onclick="closeAccountDetails(); openPremiumModal()">Cambiar plan</button>
       </div>
 
       <div class="account-row">
