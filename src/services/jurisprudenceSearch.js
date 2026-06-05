@@ -1,4 +1,7 @@
+import { extractDocumentText } from "./documentText.js";
+
 const CSJ_API_URL = "https://consultaprovidenciasbk.cortesuprema.gov.co/api";
+const CSJ_BACKEND_URL = "https://consultaprovidenciasbk.cortesuprema.gov.co";
 const CSJ_VIEWER_URL = "https://consultaprovidencias.cortesuprema.gov.co/visualizador";
 const CC_RELATORIA_URL = "https://www.corteconstitucional.gov.co/relatoria";
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || "https://litigarg-api.onrender.com").replace(/\/$/, "");
@@ -243,6 +246,7 @@ function scoreSource(source, originalQuery = "") {
   if (source.year && Number(source.year) >= 2020) score += 1;
   if (source.title?.includes("SP")) score += 1;
   if (source.extract) score += 1;
+  if (source.sourceType === "law") score += 10;
 
   return score;
 }
@@ -273,6 +277,182 @@ function isSourcePertinent(source, originalQuery = "") {
   }
 
   return score >= 6;
+}
+
+function getMimeTypeFromFileName(fileName = "") {
+  if (/\.pdf$/i.test(fileName)) return "application/pdf";
+  if (/\.docx$/i.test(fileName)) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (/\.doc$/i.test(fileName)) return "application/msword";
+  return "text/plain";
+}
+
+function stripHtml(value = "") {
+  return String(value)
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&aacute;/gi, "a")
+    .replace(/&eacute;/gi, "e")
+    .replace(/&iacute;/gi, "i")
+    .replace(/&oacute;/gi, "o")
+    .replace(/&uacute;/gi, "u")
+    .replace(/&ntilde;/gi, "n")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreParagraph(paragraph = "", query = "") {
+  const terms = extractSearchTerms(query);
+  const normalizedParagraph = normalizeText(paragraph);
+  let score = 0;
+
+  for (const term of terms) {
+    if (normalizedParagraph.includes(term)) score += 2;
+  }
+
+  const intent = getQueryIntent(query);
+
+  if (intent.wantsReturnOfSeizedProperty && /(devolucion|entrega|incaut|ocupad|comiso|decomiso|bienes|recursos)/.test(normalizedParagraph)) {
+    score += 8;
+  }
+
+  if (intent.mentionsDetentionMeasure && /(medida de aseguramiento|detencion preventiva|peligro para la comunidad|comparecencia|inferencia razonable)/.test(normalizedParagraph)) {
+    score += 8;
+  }
+
+  if (intent.mentionsDocumentaryEvidence && /(prueba documental|incorporacion|estipulacion|publicidad|contradiccion|lectura)/.test(normalizedParagraph)) {
+    score += 8;
+  }
+
+  if (paragraph.length >= 180 && paragraph.length <= 1200) score += 2;
+
+  return score;
+}
+
+function pickRelevantExtract(text = "", query = "") {
+  const clean = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!clean) return "";
+
+  const paragraphs = clean
+    .split(/(?<=[.!?;:])\s+(?=[A-ZÁÉÍÓÚÑ0-9])/)
+    .map(part => part.trim())
+    .filter(part => part.length >= 80);
+
+  const best = paragraphs
+    .map(paragraph => ({
+      paragraph,
+      score: scoreParagraph(paragraph, query)
+    }))
+    .sort((a, b) => b.score - a.score)[0];
+
+  return (best?.paragraph || clean)
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1100);
+}
+
+async function fetchOfficialPathText(source = {}) {
+  if (!source.officialPath) return "";
+
+  const fileName = source.fileName || source.officialPath.split("/").pop() || "providencia";
+  const response = await fetch(`${CSJ_BACKEND_URL}/downloadFile`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ path: source.officialPath })
+  });
+
+  if (!response.ok) return "";
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const mimeType = getMimeTypeFromFileName(fileName);
+
+  if (/\.doc$/i.test(fileName)) {
+    return stripHtml(buffer.toString("latin1"));
+  }
+
+  return extractDocumentText({
+    buffer,
+    mimetype: mimeType,
+    originalname: fileName
+  }, {
+    maxChars: 45000
+  });
+}
+
+async function fetchWebPageText(url = "") {
+  if (!url) return "";
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "LitigARG/1.0"
+    }
+  });
+
+  if (!response.ok) return "";
+
+  const contentType = response.headers.get("content-type") || "";
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  if (contentType.includes("pdf") || /\.pdf($|\?)/i.test(url)) {
+    return extractDocumentText({
+      buffer,
+      mimetype: "application/pdf",
+      originalname: "fuente.pdf"
+    }, {
+      maxChars: 45000
+    });
+  }
+
+  return stripHtml(buffer.toString("utf8"));
+}
+
+async function enrichSourceWithExtract(source = {}, query = "") {
+  try {
+    const rawText = source.officialPath
+      ? await fetchOfficialPathText(source)
+      : source.url && /^https?:\/\//i.test(source.url)
+        ? await fetchWebPageText(source.url)
+        : "";
+    const extracted = pickRelevantExtract(rawText, query);
+    const currentExtract = source.extract || source.snippet || "";
+    const bestExtract = currentExtract && scoreParagraph(currentExtract, query) >= scoreParagraph(extracted, query)
+      ? currentExtract
+      : extracted;
+
+    if (!bestExtract) {
+      return source;
+    }
+
+    return {
+      ...source,
+      extract: bestExtract,
+      snippet: bestExtract,
+      readStatus: "read",
+      readAt: new Date().toISOString()
+    };
+  } catch {
+    return source;
+  }
+}
+
+async function enrichSourcesWithExtracts(sources = [], query = "") {
+  const enriched = await Promise.all(
+    sources.map(source => enrichSourceWithExtract(source, query))
+  );
+
+  return enriched
+    .map(source => ({
+      ...source,
+      relevanceScore: source.relevanceScore ?? scoreSource(source, query)
+    }))
+    .sort((a, b) => b.relevanceScore - a.relevanceScore || Number(b.year || 0) - Number(a.year || 0));
 }
 
 function getConstitutionalCandidates(reference) {
@@ -515,8 +695,46 @@ function getSourceAliases(source = {}) {
     });
   });
 
+  const csjRadicado = text.match(/\b\d{5,8}\b/);
+  if ((source.corporation || "").toLowerCase().includes("corte suprema") && csjRadicado) {
+    aliases.add(csjRadicado[0]);
+    aliases.add(`radicado ${csjRadicado[0]}`);
+    aliases.add(`rad. ${csjRadicado[0]}`);
+  }
+
   if (source.title && source.title.length <= 90) {
     aliases.add(normalizeReference(source.title));
+  }
+
+  if (source.sourceType === "law" || /Ley\s+\d+/i.test(source.title || "")) {
+    const title = normalizeReference(source.title || "");
+    const articleMatch = title.match(/articulo\s+(\d+)/i);
+    const lawMatch = title.match(/ley\s+(\d+)\s+de\s+(\d{4})/i);
+
+    if (articleMatch && lawMatch) {
+      const article = articleMatch[1];
+      const law = lawMatch[1];
+      const year = lawMatch[2];
+      const accentedArticle = `art${String.fromCharCode(237)}culo`;
+      [
+        `articulo ${article}`,
+        `articulo ${article} Ley ${law}`,
+        `articulo ${article} de la Ley ${law}`,
+        `articulo ${article} Ley ${law} de ${year}`,
+        `articulo ${article} de la Ley ${law} de ${year}`,
+        `Ley ${law} articulo ${article}`,
+        `Ley ${law} de ${year} articulo ${article}`,
+        `Ley ${law} de ${year}, articulo ${article}`,
+        `${accentedArticle} ${article}`,
+        `${accentedArticle} ${article} Ley ${law}`,
+        `${accentedArticle} ${article} de la Ley ${law}`,
+        `${accentedArticle} ${article} Ley ${law} de ${year}`,
+        `${accentedArticle} ${article} de la Ley ${law} de ${year}`,
+        `Ley ${law} ${accentedArticle} ${article}`,
+        `Ley ${law} de ${year} ${accentedArticle} ${article}`,
+        `Ley ${law} de ${year}, ${accentedArticle} ${article}`
+      ].forEach(alias => aliases.add(alias));
+    }
   }
 
   return [...aliases]
@@ -579,14 +797,18 @@ export async function searchJurisprudence(query) {
 
   const normalizedCsjSources = Array.isArray(csjSources) ? csjSources : [];
   const errors = Array.isArray(csjSources) ? [] : [csjSources.error].filter(Boolean);
-  const sources = [...statutorySources, ...constitutionalSources, ...normalizedCsjSources].slice(0, MAX_SOURCES_FOR_ANSWER);
+  const searchPlan = buildSearchQueries(query);
+  const selectedSources = [...statutorySources, ...constitutionalSources, ...normalizedCsjSources]
+    .slice(0, MAX_SOURCES_FOR_ANSWER);
+  const sources = await enrichSourcesWithExtracts(selectedSources, query);
 
   return {
     configured: true,
     provider: "official-repositories",
     answer: sources.length
-      ? "Busqueda realizada en repositorios oficiales disponibles."
+      ? "Busqueda realizada en repositorios oficiales disponibles, con lectura y seleccion de extractos utiles cuando fue posible."
       : "No encontre una fuente oficial verificable con esta consulta inicial.",
+    searchPlan,
     sources,
     officialSources: sources.filter(source => source.official),
     needsOfficialVerification: sources.some(source => !source.verified),

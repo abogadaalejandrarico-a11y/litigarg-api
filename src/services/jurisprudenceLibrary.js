@@ -40,6 +40,14 @@ const TOPIC_RULES = [
   {
     topic: "casacion penal",
     keywords: ["casacion", "demanda de casacion", "violacion directa", "falso juicio"]
+  },
+  {
+    topic: "devolucion de bienes incautados",
+    keywords: ["devolucion de bienes", "devolucion de arma", "arma incautada", "bien incautado", "articulo 88", "comiso", "decomiso"]
+  },
+  {
+    topic: "armas y elementos materiales",
+    keywords: ["arma", "armas", "arma de fuego", "salvoconducto", "incautacion de arma", "destruccion arma", "articulo 563"]
   }
 ];
 
@@ -85,7 +93,14 @@ function normalizeSource(source = {}, query = "") {
     metadata: {
       sourceType: source.sourceType || "jurisprudence",
       official: Boolean(source.official),
-      verified: Boolean(source.verified)
+      verified: Boolean(source.verified),
+      officialViewerUrl: source.officialViewerUrl || null,
+      officialSearchUrl: source.officialSearchUrl || null,
+      officialPath: source.officialPath || null,
+      fileName: source.fileName || null,
+      readStatus: source.readStatus || null,
+      readAt: source.readAt || null,
+      relevanceScore: source.relevanceScore ?? null
     }
   };
 }
@@ -207,7 +222,14 @@ export async function findRelevantJurisprudence(query = "", limit = 5) {
         topics: row.topics || [],
         sourceType: "jurisprudence_library",
         official: Boolean(row.metadata?.official ?? true),
-        verified: Boolean(row.metadata?.verified ?? true)
+        verified: Boolean(row.metadata?.verified ?? true),
+        officialViewerUrl: row.metadata?.officialViewerUrl || null,
+        officialSearchUrl: row.metadata?.officialSearchUrl || null,
+        officialPath: row.metadata?.officialPath || null,
+        fileName: row.metadata?.fileName || null,
+        readStatus: row.metadata?.readStatus || null,
+        readAt: row.metadata?.readAt || null,
+        relevanceScore: row.metadata?.relevanceScore ?? null
       }));
     });
   }
@@ -235,7 +257,14 @@ export async function findRelevantJurisprudence(query = "", limit = 5) {
       topics: item.topics || [],
       sourceType: "jurisprudence_library",
       official: Boolean(item.metadata?.official ?? true),
-      verified: Boolean(item.metadata?.verified ?? true)
+      verified: Boolean(item.metadata?.verified ?? true),
+      officialViewerUrl: item.metadata?.officialViewerUrl || null,
+      officialSearchUrl: item.metadata?.officialSearchUrl || null,
+      officialPath: item.metadata?.officialPath || null,
+      fileName: item.metadata?.fileName || null,
+      readStatus: item.metadata?.readStatus || null,
+      readAt: item.metadata?.readAt || null,
+      relevanceScore: item.metadata?.relevanceScore ?? null
     }));
 }
 
