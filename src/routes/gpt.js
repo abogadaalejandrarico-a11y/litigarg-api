@@ -3,8 +3,8 @@ import multer from "multer";
 import authMiddlewares from "../middlewares/auth.js";
 import { getUserPlan } from "../services/subscription.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
-import { extractDocumentText } from "../services/documentText.js";
-import { generarRespuestaLegal } from "../services/openai.js";
+import { extractDocumentText, isSupportedImageFile } from "../services/documentText.js";
+import { generarRespuestaLegal, generarRespuestaLegalConImagen } from "../services/openai.js";
 import {
   findRelevantDocuments,
   formatDocumentContext
@@ -168,27 +168,42 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
       });
     }
 
-    const documentText = await extractDocumentText(req.file);
+    const userName = await getUserName(userId);
+    const isImage = isSupportedImageFile(req.file);
+    let message = "";
+    let sourceQuery = `${prompt}\n${req.file.originalname}`;
+    let respuesta = "";
 
-    if (!documentText) {
-      return res.status(400).json({ error: "No pude extraer texto del documento." });
-    }
+    if (isImage) {
+      message = `
+${prompt}
 
-    const message = `
+Nombre del archivo: ${req.file.originalname}
+
+Tipo de archivo: imagen cargada por el usuario.
+      `.trim();
+    } else {
+      const documentText = await extractDocumentText(req.file);
+
+      if (!documentText) {
+        return res.status(400).json({ error: "No pude extraer texto del documento." });
+      }
+
+      message = `
 ${prompt}
 
 Nombre del archivo: ${req.file.originalname}
 
 Contenido del documento:
 ${documentText}
-    `.trim();
+      `.trim();
+      sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
+    }
 
-    const userName = await getUserName(userId);
-    const sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
     const sourceSearchNeeded = shouldSearchJurisprudence(sourceQuery);
     const sources = await getOfficialSources(sourceQuery);
     const libraryContext = await getLibraryContext(sourceQuery);
-    const respuesta = await generarRespuestaLegal(message, {
+    const answerOptions = {
       userName,
       libraryContext,
       sourcesContext: sources.length
@@ -196,7 +211,14 @@ ${documentText}
         : sourceSearchNeeded
           ? "Busqueda oficial realizada: no se encontraron providencias suficientemente pertinentes para citar con seguridad en esta respuesta. Debes decirlo expresamente y no inventar ni forzar jurisprudencia."
           : ""
-    });
+    };
+
+    if (isImage) {
+      respuesta = await generarRespuestaLegalConImagen(req.file, message, answerOptions);
+    } else {
+      respuesta = await generarRespuestaLegal(message, answerOptions);
+    }
+
     const linkedAnswer = addInlineSourceLinks(respuesta, sources);
     const updatedUsage = await finishUsage(userId, "file");
 

@@ -32,6 +32,17 @@ const TEXT_EXTENSIONS = new Set([
   ".yaml",
   ".log"
 ]);
+const IMAGE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp"
+]);
+const IMAGE_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp"
+]);
 
 export async function extractDocumentText(file, options = {}) {
   if (!file) {
@@ -71,6 +82,17 @@ export async function extractDocumentText(file, options = {}) {
 
 export function getLibraryTextLimit() {
   return MAX_LIBRARY_CHARS;
+}
+
+export function isSupportedImageFile(file) {
+  if (!file) {
+    return false;
+  }
+
+  const mimeType = file.mimetype || "";
+  const name = (file.originalname || "").toLowerCase();
+
+  return IMAGE_MIME_TYPES.has(mimeType) || [...IMAGE_EXTENSIONS].some(extension => name.endsWith(extension));
 }
 
 function cleanText(text, maxChars = MAX_DOCUMENT_CHARS) {

@@ -111,7 +111,7 @@ export function getBasePrompt() {
   return MASTER_PROMPT.trim();
 }
 
-export async function generarRespuestaLegal(mensaje, options = {}) {
+async function buildSystemPrompt(options = {}) {
   const userName = (options.userName || "").trim();
   const sourcesContext = (options.sourcesContext || "").trim();
   const libraryContext = (options.libraryContext || "").trim();
@@ -128,16 +128,55 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
   const aiConfig = await getAiConfig();
   const activeRules = (aiConfig.customRules || MASTER_PROMPT).trim();
 
+  return `${activeRules}${userContext}${internalLibraryContext}${verifiedSourcesContext}`;
+}
+
+export async function generarRespuestaLegal(mensaje, options = {}) {
+  const systemPrompt = await buildSystemPrompt(options);
+
   const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       {
         role: "system",
-        content: `${activeRules}${userContext}${internalLibraryContext}${verifiedSourcesContext}`
+        content: systemPrompt
       },
       {
         role: "user",
         content: mensaje
+      }
+    ]
+  });
+
+  return completion.choices[0].message.content;
+}
+
+export async function generarRespuestaLegalConImagen(file, mensaje, options = {}) {
+  const systemPrompt = await buildSystemPrompt(options);
+  const mimeType = file.mimetype || "image/png";
+  const imageBase64 = file.buffer.toString("base64");
+
+  const completion = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: systemPrompt
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `${mensaje}\n\nAnaliza la imagen con cuidado. Si contiene texto, transcribelo o resume lo relevante. Si contiene una escena, documento fotografiado, captura de pantalla, evidencia o elemento material, distingue lo observado directamente de las inferencias. No inventes datos que no sean visibles.`
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${imageBase64}`
+            }
+          }
+        ]
       }
     ]
   });

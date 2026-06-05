@@ -1699,7 +1699,7 @@ body{
         <input
           type="file"
           id="fileInput"
-          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,.png,.jpg,.jpeg,.webp,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
           style="display:none"
           onchange="handleFileSelected()"
         >
@@ -2172,7 +2172,11 @@ function getSupportedUserFileExtensions(){
     ".scss",
     ".yml",
     ".yaml",
-    ".log"
+    ".log",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp"
   ];
 }
 
@@ -2230,7 +2234,7 @@ function handleFileSelected(){
   }
 
   if(!isSupportedUserFile(file)){
-    alert("Formato no soportado por ahora. Puedes subir PDF, DOCX o archivos de texto, codigo, CSV, JSON, HTML, Markdown, XML, YAML o SQL.");
+    alert("Formato no soportado por ahora. Puedes subir PDF, DOCX, imagenes PNG/JPG/WEBP o archivos de texto, codigo, CSV, JSON, HTML, Markdown, XML, YAML o SQL.");
     clearAttachedFile();
     return;
   }
