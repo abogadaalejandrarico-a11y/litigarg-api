@@ -4,9 +4,82 @@ const CSJ_API_URL = "https://consultaprovidenciasbk.cortesuprema.gov.co/api";
 const CSJ_BACKEND_URL = "https://consultaprovidenciasbk.cortesuprema.gov.co";
 const CSJ_VIEWER_URL = "https://consultaprovidencias.cortesuprema.gov.co/visualizador";
 const CC_RELATORIA_URL = "https://www.corteconstitucional.gov.co/relatoria";
+const SUIN_URL = "https://www.suin-juriscol.gov.co";
+const SENADO_BASEDOC_URL = "https://www.secretariasenado.gov.co/senado/basedoc";
+const SENADO_GACETAS_URL = "https://www.secretariasenado.gov.co/legibus/legibus/gacetas";
+const RAMA_JUDICIAL_URL = "https://www.ramajudicial.gov.co";
+const AMBITO_JURIDICO_URL = "https://www.ambitojuridico.com";
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || "https://litigarg-api.onrender.com").replace(/\/$/, "");
-const MAX_SOURCES_FOR_ANSWER = 4;
+const MAX_SOURCES_FOR_ANSWER = 6;
 const LEY_906_ART_88_URL = "https://www.secretariasenado.gov.co/senado/basedoc/ley_0906_2004a_pr002.html#88";
+const COLOMBIAN_LEGAL_REPOSITORIES = [
+  "Corte Suprema de Justicia - Sala de Casacion Penal",
+  "Corte Constitucional - Relatoria",
+  "Secretaria del Senado - Leyes colombianas",
+  "SUIN-Juriscol",
+  "Rama Judicial",
+  "Gaceta del Congreso/Senado",
+  "Ambito Juridico como fuente secundaria orientadora"
+];
+
+const PENAL_LAW_SOURCES = [
+  {
+    key: "ley_599",
+    title: "Ley 599 de 2000 - Codigo Penal",
+    url: `${SENADO_BASEDOC_URL}/ley_0599_2000.html`,
+    corporation: "Secretaria del Senado",
+    room: "Normativa penal sustancial",
+    year: 2000,
+    keywords: ["ley 599", "codigo penal", "delito", "tipicidad", "pena", "amenaza", "homicidio", "hurto", "lesiones", "intimidacion", "arma de fuego"]
+  },
+  {
+    key: "ley_600",
+    title: "Ley 600 de 2000 - Codigo de Procedimiento Penal anterior",
+    url: `${SENADO_BASEDOC_URL}/ley_0600_2000.html`,
+    corporation: "Secretaria del Senado",
+    room: "Normativa procesal penal",
+    year: 2000,
+    keywords: ["ley 600", "codigo de procedimiento penal anterior", "sistema mixto", "instruccion", "fiscalia ley 600"]
+  },
+  {
+    key: "ley_906",
+    title: "Ley 906 de 2004 - Codigo de Procedimiento Penal",
+    url: `${SENADO_BASEDOC_URL}/ley_0906_2004.html`,
+    corporation: "Secretaria del Senado",
+    room: "Normativa procesal penal",
+    year: 2004,
+    keywords: ["ley 906", "codigo de procedimiento penal", "sistema penal oral acusatorio", "audiencia", "imputacion", "acusacion", "juicio oral", "medida de aseguramiento", "prueba", "control de garantias"]
+  },
+  {
+    key: "ley_906_art_88",
+    title: "Ley 906 de 2004, articulo 88 - Devolucion de bienes",
+    url: LEY_906_ART_88_URL,
+    corporation: "Secretaria del Senado",
+    room: "Normativa procesal penal",
+    year: 2004,
+    keywords: ["articulo 88", "devolucion", "bien incautado", "bienes incautados", "arma incautada", "comiso", "decomiso", "ocupacion de bienes"],
+    extract: "El articulo 88 regula la devolucion de bienes y recursos incautados u ocupados cuando no sean necesarios para la indagacion o investigacion, o cuando se determine que no procede su comiso. Tambien exige definir la situacion del bien y comunicar la decision a quien tenga derecho a reclamarlo.",
+    snippet: "Devolucion de bienes incautados u ocupados cuando no sean necesarios para la investigacion o no proceda comiso."
+  },
+  {
+    key: "ley_1826",
+    title: "Ley 1826 de 2017 - Procedimiento penal especial abreviado y acusador privado",
+    url: `${SENADO_BASEDOC_URL}/ley_1826_2017.html`,
+    corporation: "Secretaria del Senado",
+    room: "Normativa procesal penal",
+    year: 2017,
+    keywords: ["ley 1826", "procedimiento especial abreviado", "acusador privado", "delitos querellables", "articulo 563", "destruccion arma"]
+  },
+  {
+    key: "ley_1908",
+    title: "Ley 1908 de 2018 - Fortalecimiento de investigacion contra organizaciones criminales",
+    url: `${SENADO_BASEDOC_URL}/ley_1908_2018.html`,
+    corporation: "Secretaria del Senado",
+    room: "Normativa penal especial",
+    year: 2018,
+    keywords: ["ley 1908", "organizaciones criminales", "grupo armado organizado", "gao", "delincuencia organizada", "sometimiento"]
+  }
+];
 
 const SEARCH_TRIGGERS = [
   "jurisprudencia",
@@ -19,7 +92,19 @@ const SEARCH_TRIGGERS = [
   "norma",
   "articulo",
   "ley 906",
+  "ley 599",
+  "ley 600",
+  "ley 1826",
+  "ley 1908",
+  "codigo penal",
   "codigo de procedimiento penal",
+  "suin",
+  "secretaria del senado",
+  "rama judicial",
+  "ambito juridico",
+  "gaceta",
+  "gaceta del senado",
+  "gaceta del congreso",
   "corte suprema",
   "corte constitucional",
   "sala penal",
@@ -148,9 +233,13 @@ function buildSearchQueries(query = "") {
     searches.push("arma incautada comiso devolucion debido proceso");
   }
 
+  searches.push(
+    ...COLOMBIAN_LEGAL_REPOSITORIES.map(repository => `${repository}: ${terms.slice(0, 5).join(" ") || cleanText(query)}`)
+  );
+
   searches.push(cleanText(query));
 
-  return [...new Set(searches.map(cleanText).filter(Boolean))].slice(0, 7);
+  return [...new Set(searches.map(cleanText).filter(Boolean))].slice(0, 12);
 }
 
 function getQueryIntent(query = "") {
@@ -161,7 +250,13 @@ function getQueryIntent(query = "") {
     mentionsWeapon: /(arma|armas|fuego|pistola|revolver|salvoconducto)/.test(normalized),
     mentionsThreatOrIntimidation: /(intimidacion|amenaza|amenazas|constreñimiento|violencia)/.test(normalized),
     mentionsDetentionMeasure: /(medida de aseguramiento|detencion preventiva|intramural|peligro para la comunidad)/.test(normalized),
-    mentionsDocumentaryEvidence: /(prueba documental|documento|estipulacion|incorporacion|lectura)/.test(normalized)
+    mentionsDocumentaryEvidence: /(prueba documental|documento|estipulacion|incorporacion|lectura)/.test(normalized),
+    mentionsSubstantiveCriminalLaw: /(codigo penal|ley 599|delito|tipicidad|pena|punible|arma de fuego|amenaza|intimidacion|lesiones|homicidio|hurto)/.test(normalized),
+    mentionsProceduralLaw: /(ley 906|codigo de procedimiento penal|audiencia|imputacion|acusacion|juicio oral|control de garantias|preparatoria|apelacion|casacion)/.test(normalized),
+    mentionsLaw600: /(ley 600|sistema mixto|instruccion penal)/.test(normalized),
+    mentionsAbbreviatedProcedure: /(ley 1826|procedimiento especial abreviado|acusador privado|querella|querellable|articulo 563)/.test(normalized),
+    mentionsOrganizedCrime: /(ley 1908|organizaciones criminales|grupo armado organizado|gao|delincuencia organizada|sometimiento)/.test(normalized),
+    asksForLegislativeChange: /(modifica|modificacion|reforma|gaceta|proyecto de ley|ley penal|senado|congreso)/.test(normalized)
   };
 }
 
@@ -247,6 +342,8 @@ function scoreSource(source, originalQuery = "") {
   if (source.title?.includes("SP")) score += 1;
   if (source.extract) score += 1;
   if (source.sourceType === "law") score += 10;
+  if (source.sourceType === "repository_search") score -= 4;
+  if (source.sourceType === "secondary_reference") score -= 6;
 
   return score;
 }
@@ -415,6 +512,10 @@ async function fetchWebPageText(url = "") {
 
 async function enrichSourceWithExtract(source = {}, query = "") {
   try {
+    if (["repository_search", "secondary_reference"].includes(source.sourceType)) {
+      return source;
+    }
+
     const rawText = source.officialPath
       ? await fetchOfficialPathText(source)
       : source.url && /^https?:\/\//i.test(source.url)
@@ -616,24 +717,123 @@ async function searchCorteConstitucional(query) {
 
 function getStatutorySources(query = "") {
   const normalized = normalizeText(query);
-  const sources = [];
-
-  if (normalized.includes("devolucion") && /(arma|bien|bienes|incaut|ocupad)/.test(normalized)) {
-    sources.push({
-      title: "Ley 906 de 2004, articulo 88 - Devolucion de bienes",
-      url: LEY_906_ART_88_URL,
-      corporation: "Secretaria del Senado",
-      room: "Normativa penal",
-      year: 2004,
+  const intent = getQueryIntent(query);
+  const sources = PENAL_LAW_SOURCES
+    .filter(source =>
+      source.key === "ley_906_art_88"
+        ? normalized.includes("devolucion") && /(arma|bien|bienes|incaut|ocupad|comiso)/.test(normalized)
+        : source.key === "ley_599"
+          ? intent.mentionsSubstantiveCriminalLaw
+          : source.key === "ley_906"
+            ? intent.mentionsProceduralLaw || intent.wantsReturnOfSeizedProperty || intent.mentionsDetentionMeasure || intent.mentionsDocumentaryEvidence
+            : source.key === "ley_600"
+              ? intent.mentionsLaw600
+              : source.key === "ley_1826"
+                ? intent.mentionsAbbreviatedProcedure
+                : source.key === "ley_1908"
+                  ? intent.mentionsOrganizedCrime
+                  : source.keywords.some(keyword => normalized.includes(normalizeText(keyword)))
+    )
+    .map(source => ({
+      ...source,
       sourceType: "law",
       verified: true,
       official: true,
-      extract: "El articulo 88 regula la devolucion de bienes y recursos incautados u ocupados cuando no sean necesarios para la indagacion o investigacion, o cuando se determine que no procede su comiso. Tambien exige definir la situacion del bien y comunicar la decision a quien tenga derecho a reclamarlo.",
-      snippet: "Devolucion de bienes incautados u ocupados cuando no sean necesarios para la investigacion o no proceda comiso."
+      extract: source.extract || `Fuente normativa oficial colombiana: ${source.title}. Utilizala solo si responde al problema juridico concreto del usuario.`,
+      snippet: source.snippet || `Norma penal colombiana disponible en Secretaria del Senado: ${source.title}.`
+    }));
+
+  if (!sources.length && shouldSearchJurisprudence(query)) {
+    const fallback = PENAL_LAW_SOURCES.find(source => source.key === "ley_906");
+
+    if (fallback) {
+      sources.push({
+        ...fallback,
+        sourceType: "law",
+        verified: true,
+        official: true,
+        extract: "Fuente normativa procesal penal colombiana de consulta general. Usala solo si el problema juridico exige soporte procesal.",
+        snippet: "Codigo de Procedimiento Penal colombiano."
+      });
+    }
+  }
+
+  return sources.slice(0, 3);
+}
+
+function makeControlledSearchUrl(domain, query = "") {
+  return `https://www.google.com/search?q=${encodeURIComponent(`site:${domain} ${cleanText(query)}`)}`;
+}
+
+function getRepositorySearchSources(query = "") {
+  const normalized = normalizeText(query);
+  const shouldIncludeLegislative = /(gaceta|proyecto de ley|senado|congreso|modifica|reforma|ley penal)/.test(normalized);
+  const shouldIncludeSecondary = /(concepto|ambito juridico|noticia|actualidad|analisis|doctrina|linea jurisprudencial)/.test(normalized);
+  const sources = [
+    {
+      title: "Corte Constitucional - Relatoria y buscador oficial",
+      url: CC_RELATORIA_URL,
+      officialSearchUrl: makeControlledSearchUrl("corteconstitucional.gov.co/relatoria", query),
+      corporation: "Corte Constitucional",
+      room: "Relatoria",
+      sourceType: "repository_search",
+      verified: false,
+      official: true,
+      extract: "Repositorio oficial colombiano para verificar sentencias de constitucionalidad, tutela y unificacion. No debe citarse como providencia especifica si no hay decision concreta identificada."
+    },
+    {
+      title: "SUIN-Juriscol - Normativa y jurisprudencia colombiana",
+      url: SUIN_URL,
+      officialSearchUrl: makeControlledSearchUrl("suin-juriscol.gov.co", query),
+      corporation: "SUIN-Juriscol",
+      room: "Repositorio normativo colombiano",
+      sourceType: "repository_search",
+      verified: false,
+      official: true,
+      extract: "Repositorio oficial colombiano para contrastar normas, vigencias y documentos juridicos. Debe usarse como ruta de verificacion cuando no exista enlace directo a la norma o providencia."
+    },
+    {
+      title: "Rama Judicial - Busqueda institucional colombiana",
+      url: RAMA_JUDICIAL_URL,
+      officialSearchUrl: makeControlledSearchUrl("ramajudicial.gov.co", query),
+      corporation: "Rama Judicial",
+      room: "Busqueda institucional",
+      sourceType: "repository_search",
+      verified: false,
+      official: true,
+      extract: "Repositorio institucional colombiano para ubicar informacion judicial, relatorias y documentos publicados por la Rama Judicial. No reemplaza la providencia concreta."
+    }
+  ];
+
+  if (shouldIncludeLegislative) {
+    sources.push({
+      title: "Gacetas del Congreso/Senado - Reformas y proyectos de ley penal",
+      url: SENADO_GACETAS_URL,
+      officialSearchUrl: makeControlledSearchUrl("secretariasenado.gov.co/legibus/legibus/gacetas", query),
+      corporation: "Secretaria del Senado",
+      room: "Gacetas legislativas",
+      sourceType: "repository_search",
+      verified: false,
+      official: true,
+      extract: "Repositorio legislativo colombiano para rastrear proyectos, reformas y leyes modificatorias. Debe verificarse la gaceta o ley concreta antes de citarla."
     });
   }
 
-  return sources;
+  if (shouldIncludeSecondary) {
+    sources.push({
+      title: "Ambito Juridico - Fuente secundaria orientadora",
+      url: AMBITO_JURIDICO_URL,
+      officialSearchUrl: makeControlledSearchUrl("ambitojuridico.com", query),
+      corporation: "Ambito Juridico",
+      room: "Actualidad juridica",
+      sourceType: "secondary_reference",
+      verified: false,
+      official: false,
+      extract: "Fuente secundaria colombiana util para ubicar conceptos, noticias o pistas de jurisprudencia. No debe presentarse como autoridad judicial ni reemplazar fuentes oficiales."
+    });
+  }
+
+  return sources.slice(0, 4);
 }
 
 export function formatSourcesForPrompt(sources = []) {
@@ -643,6 +843,7 @@ export function formatSourcesForPrompt(sources = []) {
     .map((source, index) => {
       const parts = [
         `${index + 1}. ${source.title}`,
+        source.sourceType ? `Tipo: ${source.sourceType}` : "",
         source.corporation ? `Corporacion: ${source.corporation}` : "",
         source.room ? `Sala: ${source.room}` : "",
         source.year ? `Ano: ${source.year}` : "",
@@ -710,6 +911,13 @@ function getSourceAliases(source = {}) {
     const title = normalizeReference(source.title || "");
     const articleMatch = title.match(/articulo\s+(\d+)/i);
     const lawMatch = title.match(/ley\s+(\d+)\s+de\s+(\d{4})/i);
+
+    if (lawMatch) {
+      const law = lawMatch[1];
+      const year = lawMatch[2];
+      aliases.add(`Ley ${law}`);
+      aliases.add(`Ley ${law} de ${year}`);
+    }
 
     if (articleMatch && lawMatch) {
       const article = articleMatch[1];
@@ -798,8 +1006,13 @@ export async function searchJurisprudence(query) {
   const normalizedCsjSources = Array.isArray(csjSources) ? csjSources : [];
   const errors = Array.isArray(csjSources) ? [] : [csjSources.error].filter(Boolean);
   const searchPlan = buildSearchQueries(query);
-  const selectedSources = [...statutorySources, ...constitutionalSources, ...normalizedCsjSources]
+  const repositorySearchSources = getRepositorySearchSources(query);
+  const directSources = [...statutorySources, ...constitutionalSources, ...normalizedCsjSources]
     .slice(0, MAX_SOURCES_FOR_ANSWER);
+  const selectedSources = [
+    ...directSources,
+    ...repositorySearchSources.slice(0, Math.max(0, MAX_SOURCES_FOR_ANSWER - directSources.length))
+  ];
   const sources = await enrichSourcesWithExtracts(selectedSources, query);
 
   return {

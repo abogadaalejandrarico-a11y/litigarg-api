@@ -48,6 +48,22 @@ const TOPIC_RULES = [
   {
     topic: "armas y elementos materiales",
     keywords: ["arma", "armas", "arma de fuego", "salvoconducto", "incautacion de arma", "destruccion arma", "articulo 563"]
+  },
+  {
+    topic: "codigo penal colombiano",
+    keywords: ["ley 599", "codigo penal", "tipicidad", "pena", "conducta punible"]
+  },
+  {
+    topic: "procedimiento penal colombiano",
+    keywords: ["ley 906", "ley 600", "codigo de procedimiento penal", "sistema penal oral acusatorio", "procedimiento especial abreviado", "ley 1826"]
+  },
+  {
+    topic: "reformas penales y gacetas",
+    keywords: ["ley 1908", "gaceta", "congreso", "senado", "proyecto de ley", "reforma penal", "organizaciones criminales"]
+  },
+  {
+    topic: "fuentes secundarias juridicas",
+    keywords: ["ambito juridico", "actualidad juridica", "concepto juridico", "fuente secundaria"]
   }
 ];
 
