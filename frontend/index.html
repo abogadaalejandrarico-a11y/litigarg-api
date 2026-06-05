@@ -634,6 +634,41 @@ body{
   color:#F5C542;
 }
 
+.file-status{
+  min-height:22px;
+  margin:0 0 8px 48px;
+  color:#D1D5DB;
+  font-size:12px;
+}
+
+.file-status-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  max-width:100%;
+  padding:6px 10px;
+  border:1px solid rgba(179,0,0,0.45);
+  border-radius:10px;
+  background:rgba(179,0,0,0.16);
+}
+
+.file-status-chip strong{
+  color:#F5F5F5;
+  font-weight:700;
+}
+
+.file-status-chip button{
+  width:22px;
+  height:22px;
+  min-width:22px;
+  padding:0;
+  border:none;
+  border-radius:8px;
+  background:#262626;
+  color:#F5F5F5;
+  cursor:pointer;
+}
+
 .input-box{
   display:flex;
   gap:15px;
@@ -646,9 +681,10 @@ body{
   align-self:center;
   border:none;
   border-radius:10px;
-  background:#1A1A1A;
+  background:#B30000;
   color:white;
-  font-size:16px;
+  font-size:24px;
+  font-weight:700;
   cursor:pointer;
   border:1px solid rgba(255,255,255,0.06);
   display:flex;
@@ -657,7 +693,7 @@ body{
 }
 
 .file-button:hover{
-  background:#262626;
+  background:#D10000;
 }
 
 .input-box textarea{
@@ -698,12 +734,18 @@ body{
   height:40px;
   padding:0;
   border-radius:10px;
-  background:#1A1A1A;
-  font-size:16px;
+  background:#B30000;
+  font-size:24px;
+  font-weight:700;
 }
 
 .input-box .file-button:hover{
-  background:#262626;
+  background:#D10000;
+}
+
+.input-box button:disabled{
+  opacity:0.55;
+  cursor:not-allowed;
 }
 
 /* SCROLL */
@@ -1650,19 +1692,20 @@ body{
     <div class="input-container">
 
       <div class="usage-status" id="usageStatus"></div>
+      <div class="file-status" id="fileStatus"></div>
 
       <div class="input-box">
 
         <input
           type="file"
           id="fileInput"
-          accept=".pdf,.docx,.txt,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           style="display:none"
-          onchange="analyzeSelectedFile()"
+          onchange="handleFileSelected()"
         >
 
         <button class="file-button" onclick="document.getElementById('fileInput').click()" title="Subir documento">
-          &#128206;
+          +
         </button>
 
         <textarea
@@ -1670,10 +1713,10 @@ body{
           placeholder="Escribe LitigARG en que puede ayudarte..."
           rows="1"
 	        onkeydown="handleChatEnter(event)"
-          oninput="autoResizeChatInput()"
+          oninput="autoResizeChatInput(); updateSendButtonState()"
         ></textarea>
 
-        <button onclick="sendMessage()">
+        <button id="sendButton" onclick="sendMessage()">
           Enviar
         </button>
 
@@ -1826,7 +1869,7 @@ body{
       <input
         type="file"
         id="libraryFileInput"
-        accept=".pdf,.docx,.txt,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       >
       <input type="text" id="libraryTitle" placeholder="Titulo del material">
       <input type="text" id="libraryAuthor" placeholder="Autor (ej. W)">
@@ -1877,6 +1920,9 @@ let activeResetToken = "";
 let conversations = [];
 
 let currentConversation = null;
+let attachedFile = null;
+let attachedFileReady = false;
+let attachedFileLoading = false;
 
 let profileState = {
   email:"",
@@ -2096,12 +2142,131 @@ function autoResizeChatInput(){
 
 }
 
+function getSupportedUserFileExtensions(){
+  return [
+    ".pdf",
+    ".docx",
+    ".txt",
+    ".md",
+    ".csv",
+    ".json",
+    ".html",
+    ".htm",
+    ".xml",
+    ".rtf",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".py",
+    ".java",
+    ".cs",
+    ".cpp",
+    ".c",
+    ".h",
+    ".go",
+    ".rb",
+    ".php",
+    ".sql",
+    ".css",
+    ".scss",
+    ".yml",
+    ".yaml",
+    ".log"
+  ];
+}
+
+function isSupportedUserFile(file){
+  const name = (file?.name || "").toLowerCase();
+  return getSupportedUserFileExtensions().some(extension => name.endsWith(extension));
+}
+
+function setFileStatus(html = ""){
+  const status = document.getElementById("fileStatus");
+  if(status){
+    status.innerHTML = html;
+  }
+}
+
+function updateSendButtonState(){
+  const button = document.getElementById("sendButton");
+  const input = document.getElementById("msgInput");
+
+  if(!button) return;
+
+  const hasText = Boolean(input?.value.trim());
+  button.disabled = attachedFileLoading || (!hasText && !attachedFileReady);
+}
+
+function clearAttachedFile(){
+  attachedFile = null;
+  attachedFileReady = false;
+  attachedFileLoading = false;
+
+  const fileInput = document.getElementById("fileInput");
+  if(fileInput){
+    fileInput.value = "";
+  }
+
+  setFileStatus("");
+  updateSendButtonState();
+}
+
+function handleFileSelected(){
+  const fileInput = document.getElementById("fileInput");
+  const file = fileInput?.files?.[0];
+
+  if(!file){
+    clearAttachedFile();
+    return;
+  }
+
+  const maxSize = 12 * 1024 * 1024;
+
+  if(file.size > maxSize){
+    alert("El archivo supera el tamano maximo permitido de 12 MB.");
+    clearAttachedFile();
+    return;
+  }
+
+  if(!isSupportedUserFile(file)){
+    alert("Formato no soportado por ahora. Puedes subir PDF, DOCX o archivos de texto, codigo, CSV, JSON, HTML, Markdown, XML, YAML o SQL.");
+    clearAttachedFile();
+    return;
+  }
+
+  attachedFile = file;
+  attachedFileReady = false;
+  attachedFileLoading = true;
+
+  setFileStatus(
+    '<span class="file-status-chip">Cargando archivo: <strong>' +
+      escapeHtml(file.name) +
+      '</strong></span>'
+  );
+  updateSendButtonState();
+
+  setTimeout(() => {
+    if(attachedFile !== file) return;
+
+    attachedFileReady = true;
+    attachedFileLoading = false;
+    setFileStatus(
+      '<span class="file-status-chip">Archivo listo: <strong>' +
+        escapeHtml(file.name) +
+        '</strong><button type="button" onclick="clearAttachedFile()" title="Quitar archivo">x</button></span>'
+    );
+    updateSendButtonState();
+  }, 250);
+}
+
 function setPrompt(text){
 
   const input = document.getElementById("msgInput");
 
   input.value = text;
   autoResizeChatInput();
+  updateSendButtonState();
 
   input.focus();
 
@@ -3343,6 +3508,12 @@ async function sendMessage(){
 
   const text = input.value.trim();
 
+  if(attachedFile){
+    if(!attachedFileReady || attachedFileLoading) return;
+    await analyzeSelectedFile(text);
+    return;
+  }
+
   if(!text) return;
 
 if(!currentConversation){
@@ -3357,6 +3528,7 @@ if(!currentConversation){
 
   input.value = "";
   autoResizeChatInput();
+  updateSendButtonState();
 
   const typing = document.createElement("div");
 
@@ -3431,12 +3603,17 @@ addMessageToConversation(
 
 }
 
-async function analyzeSelectedFile(){
+async function analyzeSelectedFile(instructionText = ""){
 
   const fileInput = document.getElementById("fileInput");
-  const file = fileInput.files[0];
+  const file = attachedFile || fileInput.files[0];
 
   if(!file) return;
+  if(attachedFileLoading || !attachedFileReady) return;
+
+  const input = document.getElementById("msgInput");
+  const userInstruction = instructionText.trim();
+  const promptText = userInstruction || "Analiza este documento desde la defensa penal. Identifica hechos relevantes, debilidades probatorias, riesgos, oportunidades de contradiccion, posibles argumentos y preguntas utiles para audiencia.";
 
   if(!currentConversation){
 
@@ -3446,7 +3623,21 @@ async function analyzeSelectedFile(){
 
   const conversationId = currentConversation.id;
 
-  addMessageToConversation(conversationId,"Documento adjunto: " + file.name,"user");
+  addMessageToConversation(
+    conversationId,
+    "Documento adjunto: " + file.name + (userInstruction ? "\n\n" + userInstruction : ""),
+    "user"
+  );
+
+  attachedFileLoading = true;
+  attachedFileReady = false;
+
+  if(input){
+    input.value = "";
+    autoResizeChatInput();
+  }
+
+  updateSendButtonState();
 
   const typing = document.createElement("div");
   typing.className = "typing";
@@ -3469,6 +3660,8 @@ async function analyzeSelectedFile(){
       "prompt",
       "Analiza este documento desde la defensa penal. Identifica hechos relevantes, debilidades probatorias, riesgos, oportunidades de contradicción, posibles argumentos y preguntas útiles para audiencia."
     );
+
+    formData.set("prompt", promptText);
 
     const res = await fetch(
       API_URL + "/api/gpt/analyze-file",
@@ -3523,7 +3716,7 @@ async function analyzeSelectedFile(){
 
   }finally{
 
-    fileInput.value = "";
+    clearAttachedFile();
 
   }
 
