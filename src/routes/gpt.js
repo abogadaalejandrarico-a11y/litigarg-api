@@ -20,6 +20,7 @@ import {
   findRelevantJurisprudence,
   saveJurisprudenceSources
 } from "../services/jurisprudenceLibrary.js";
+import { getChatMemoryContext } from "../services/chats.js";
 import { readDB } from "../db/db.js";
 
 const router = express.Router();
@@ -111,7 +112,7 @@ async function getLibraryContext(text) {
 
 router.post("/chat", authMiddlewares, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, conversationId } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: "Mensaje requerido" });
@@ -133,8 +134,12 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     const sourceSearchNeeded = shouldSearchJurisprudence(message);
     const sources = await getOfficialSources(message);
     const libraryContext = await getLibraryContext(message);
+    const conversationContext = await getChatMemoryContext(userId, conversationId, {
+      excludeLatestUserText: message
+    });
     const respuesta = await generarRespuestaLegal(message, {
       userName,
+      conversationContext,
       libraryContext,
       sourcesContext: sources.length
         ? formatSourcesForPrompt(sources)
@@ -164,6 +169,7 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
   try {
     const userId = req.user.userId;
     const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigacion penal y argumentacion juridica.";
+    const conversationId = req.body.conversationId || "";
     const isVideo = isSupportedVideoFile(req.file);
     const isAudio = !isVideo && isSupportedAudioFile(req.file);
     const accessKind = isVideo ? "video" : isAudio ? "audio" : "file";
@@ -185,6 +191,7 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
     let message = "";
     let sourceQuery = `${prompt}\n${req.file.originalname}`;
     let respuesta = "";
+    const visibleUserMessage = `Documento adjunto: ${req.file.originalname}${prompt ? `\n\n${prompt}` : ""}`;
 
     if (isVideo) {
       if (!maxVideoBytes || req.file.size > maxVideoBytes) {
@@ -261,8 +268,12 @@ ${documentText}
     const sourceSearchNeeded = shouldSearchJurisprudence(sourceQuery);
     const sources = await getOfficialSources(sourceQuery);
     const libraryContext = await getLibraryContext(sourceQuery);
+    const conversationContext = await getChatMemoryContext(userId, conversationId, {
+      excludeLatestUserText: visibleUserMessage
+    });
     const answerOptions = {
       userName,
+      conversationContext,
       libraryContext,
       sourcesContext: sources.length
         ? formatSourcesForPrompt(sources)

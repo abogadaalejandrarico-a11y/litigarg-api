@@ -116,11 +116,15 @@ async function buildSystemPrompt(options = {}) {
   const userName = (options.userName || "").trim();
   const sourcesContext = (options.sourcesContext || "").trim();
   const libraryContext = (options.libraryContext || "").trim();
+  const conversationContext = (options.conversationContext || "").trim();
   const userContext = userName
     ? `\n\nUsuario actual: ${userName}. Trátalo por ese nombre de forma natural cuando expliques lo que vas a hacer, lo que encontraste o cómo organizarás la respuesta. No repitas su nombre en cada párrafo; úsalo solo cuando aporte cercanía y claridad.`
     : "";
   const internalLibraryContext = libraryContext
     ? `\n\nBIBLIOTECA INTERNA DE LITIGARG\n${libraryContext}\n\nEstos fragmentos provienen de libros, materiales o documentos internos cargados en LitigARG. Úsalos como apoyo doctrinal, metodológico o técnico. No los presentes como jurisprudencia oficial. Si los usas, menciona de forma natural el material interno o autor cuando aparezca disponible.`
+    : "";
+  const activeConversationContext = conversationContext
+    ? `\n\nMEMORIA DE ESTA CONVERSACION\n${conversationContext}\n\nUsa esta memoria solo para mantener continuidad dentro del chat actual: tema, hechos ya aportados, documentos mencionados, respuestas previas y decisiones de enfoque. No mezcles esta memoria con otros chats ni inventes datos que no aparezcan aqui.`
     : "";
   const verifiedSourcesContext = sourcesContext
     ? `\n\nRESULTADO DE BÚSQUEDA OFICIAL PARA ESTA RESPUESTA\n${sourcesContext}\n\nEvalúa primero si estas fuentes responden exactamente al problema jurídico del usuario. En la respuesta debes indicar brevemente qué buscaste y qué encontraste. Usa solo las fuentes que sean realmente pertinentes y no cites más fuentes de las que uses en la respuesta. Cuando menciones una sentencia, providencia, norma o fuente de esta lista, el vínculo debe quedar en la misma oración o justo al lado del nombre de la sentencia, no solo al final de la respuesta. Ejemplo: "CSJ SP1477-2018 [Fuente oficial](https://...)". También puede repetirse en el apartado de fuentes. Si la fuente tiene extracto útil, inclúyelo dentro del cuerpo de la respuesta en un párrafo propio y con lenguaje práctico, por ejemplo: "Aquí te presento un extracto de la sentencia que puedes usar para sustentar ante el juez: ...". Luego explica cómo usar ese extracto en la solicitud o intervención oral. No lo escondas solo en las fuentes. No copies bloques excesivamente largos: selecciona o sintetiza el fragmento que sirva para sostener el argumento. No cites como verificada una fuente que no aparezca aquí o que el usuario no haya aportado. Si las fuentes disponibles no tratan directamente el punto pedido, dilo expresamente y explica que se requiere una búsqueda más específica en vez de presentar providencias apenas parecidas como si fueran suficientes.`
@@ -129,7 +133,7 @@ async function buildSystemPrompt(options = {}) {
   const aiConfig = await getAiConfig();
   const activeRules = (aiConfig.customRules || MASTER_PROMPT).trim();
 
-  return `${activeRules}${userContext}${internalLibraryContext}${verifiedSourcesContext}`;
+  return `${activeRules}${userContext}${activeConversationContext}${internalLibraryContext}${verifiedSourcesContext}`;
 }
 
 export async function generarRespuestaLegal(mensaje, options = {}) {

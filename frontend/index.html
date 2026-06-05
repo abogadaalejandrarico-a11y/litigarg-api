@@ -3582,7 +3582,8 @@ if(!currentConversation){
           "Authorization":"Bearer " + token
         },
         body:JSON.stringify({
-          message:text
+          message:text,
+          conversationId
         })
       }
     );
@@ -3681,6 +3682,7 @@ async function analyzeSelectedFile(instructionText = ""){
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("conversationId", conversationId);
     formData.append(
       "prompt",
       "Analiza este documento desde la defensa penal. Identifica hechos relevantes, debilidades probatorias, riesgos, oportunidades de contradicción, posibles argumentos y preguntas útiles para audiencia."

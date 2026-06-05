@@ -30,6 +30,72 @@ function formatChat(chat, messages) {
   };
 }
 
+function normalizeMemoryText(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatMemoryMessages(messages, { excludeLatestUserText = "" } = {}) {
+  const normalizedExclude = normalizeMemoryText(excludeLatestUserText);
+  const orderedMessages = messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  if (normalizedExclude) {
+    for (let index = orderedMessages.length - 1; index >= 0; index -= 1) {
+      const message = orderedMessages[index];
+
+      if (message.type !== "user") continue;
+
+      if (normalizeMemoryText(message.text) === normalizedExclude) {
+        orderedMessages.splice(index, 1);
+      }
+
+      break;
+    }
+  }
+
+  return orderedMessages
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .slice(-16)
+    .map(message => {
+      const role = message.type === "user" ? "Usuario" : "LitigARG";
+      const text = normalizeMemoryText(message.text)
+        .slice(0, 900);
+
+      return text ? `${role}: ${text}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+export async function getChatMemoryContext(userId, chatId, options = {}) {
+  if (!chatId) return "";
+
+  if (isPostgresEnabled()) {
+    return withDBClient(async client => {
+      const result = await client.query(
+        `
+          SELECT type, text, created_at
+          FROM chat_messages
+          WHERE user_id = $1 AND chat_id = $2
+          ORDER BY created_at ASC
+        `,
+        [userId, String(chatId)]
+      );
+
+      return formatMemoryMessages(result.rows, options);
+    });
+  }
+
+  const db = await readDB();
+  const messages = (db.chatMessages || []).filter(message =>
+    Number(message.userId) === Number(userId) &&
+    message.chatId === String(chatId)
+  );
+
+  return formatMemoryMessages(messages, options);
+}
+
 async function enforceHistoryLimit(db, userId) {
   const limit = await getChatLimit(userId);
 
