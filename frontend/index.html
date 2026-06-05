@@ -3613,7 +3613,12 @@ addMessageToConversation(
   "bot",
   {
     animate:true,
-    sources:data.sources || []
+    sources:data.sources || [],
+    feedback:{
+      chatId:conversationId,
+      userMessage:text,
+      assistantAnswer:data.answer || data.error || "Error"
+    }
   }
 );
 
@@ -3726,6 +3731,11 @@ async function analyzeSelectedFile(instructionText = ""){
       "bot",
       {
         animate:true,
+        feedback:{
+          chatId:conversationId,
+          userMessage:"Documento adjunto: " + file.name + (userInstruction ? "\n\n" + userInstruction : ""),
+          assistantAnswer:data.answer || data.error || "No pude analizar el documento."
+        },
         sources:[
           ...(data.fileName ? [{ title:data.fileName, sourceType:"uploaded_document" }] : []),
           ...(data.sources || [])
@@ -3925,6 +3935,44 @@ function buildSourcesHtml(sources){
 
 }
 
+async function sendResponseFeedback(rating,feedback = {},sources = [],correction = ""){
+
+  if(!token){
+    return;
+  }
+
+  try{
+    const res = await fetch(API_URL + "/api/learning/feedback", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization:"Bearer " + token
+      },
+      body:JSON.stringify({
+        chatId:feedback.chatId || currentConversation?.id || "",
+        userMessage:feedback.userMessage || "",
+        assistantAnswer:feedback.assistantAnswer || "",
+        rating,
+        correction,
+        sources
+      })
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || "No se pudo guardar la valoracion.");
+    }
+
+    return data;
+
+  }catch(error){
+    console.error(error);
+    alert(error.message || "No se pudo guardar la valoracion.");
+  }
+
+}
+
 function addBotActions(messageDiv,text,options = {}){
 
   const actions = document.createElement("div");
@@ -3951,9 +3999,10 @@ function addBotActions(messageDiv,text,options = {}){
   likeButton.innerHTML = "&#128077;";
   likeButton.title = "Me gusta";
   likeButton.setAttribute("aria-label","Me gusta");
-  likeButton.onclick = () => {
+  likeButton.onclick = async () => {
     likeButton.classList.toggle("active");
     dislikeButton.classList.remove("active");
+    await sendResponseFeedback("like",options.feedback || { assistantAnswer:text },options.sources || []);
   };
 
   const dislikeButton = document.createElement("button");
@@ -3961,9 +4010,21 @@ function addBotActions(messageDiv,text,options = {}){
   dislikeButton.innerHTML = "&#128078;";
   dislikeButton.title = "No me gusta";
   dislikeButton.setAttribute("aria-label","No me gusta");
-  dislikeButton.onclick = () => {
+  dislikeButton.onclick = async () => {
     dislikeButton.classList.toggle("active");
     likeButton.classList.remove("active");
+    const correction = prompt(
+      profileState.canManageLibrary
+        ? "Como administradora, escribe que debe aprender LitigARG para responder mejor en casos parecidos:"
+        : "Cuéntanos brevemente qué debería mejorar LitigARG en esta respuesta:"
+    );
+
+    await sendResponseFeedback(
+      correction ? "correction" : "dislike",
+      options.feedback || { assistantAnswer:text },
+      options.sources || [],
+      correction || ""
+    );
   };
 
   const sourcesButton = document.createElement("button");

@@ -117,6 +117,7 @@ async function buildSystemPrompt(options = {}) {
   const sourcesContext = (options.sourcesContext || "").trim();
   const libraryContext = (options.libraryContext || "").trim();
   const conversationContext = (options.conversationContext || "").trim();
+  const learningContext = (options.learningContext || "").trim();
   const userContext = userName
     ? `\n\nUsuario actual: ${userName}. Trátalo por ese nombre de forma natural cuando expliques lo que vas a hacer, lo que encontraste o cómo organizarás la respuesta. No repitas su nombre en cada párrafo; úsalo solo cuando aporte cercanía y claridad.`
     : "";
@@ -126,6 +127,9 @@ async function buildSystemPrompt(options = {}) {
   const activeConversationContext = conversationContext
     ? `\n\nMEMORIA DE ESTA CONVERSACION\n${conversationContext}\n\nUsa esta memoria solo para mantener continuidad dentro del chat actual: tema, hechos ya aportados, documentos mencionados, respuestas previas y decisiones de enfoque. No mezcles esta memoria con otros chats ni inventes datos que no aparezcan aqui.`
     : "";
+  const activeLearningContext = learningContext
+    ? `\n\nAPRENDIZAJES Y CORRECCIONES INTERNAS DE LITIGARG\n${learningContext}\n\nEstas pautas provienen de valoraciones, correcciones o instrucciones guardadas, especialmente de la administradora. Usalas para mejorar la comprension del problema juridico, evitar respuestas genericas y ajustar la precision. No las cites al usuario como fuente externa; aplicalas como criterio interno de razonamiento y estilo. Si una pauta aprendida entra en tension con una fuente oficial, prevalece la fuente oficial y debes explicar la cautela.`
+    : "";
   const verifiedSourcesContext = sourcesContext
     ? `\n\nRESULTADO DE BUSQUEDA JURIDICA COLOMBIANA PARA ESTA RESPUESTA\n${sourcesContext}\n\nEvalua primero si estas fuentes responden exactamente al problema juridico del usuario. Usa solo derecho colombiano. En la respuesta debes indicar brevemente que buscaste y que encontraste. Usa solo las fuentes que sean realmente pertinentes y no cites mas fuentes de las que uses en la respuesta. Distingue con rigor: una fuente de tipo "law" es norma colombiana; una fuente de tipo "jurisprudence" es providencia o sentencia; una fuente de tipo "repository_search" es solo una ruta de verificacion y no debe citarse como sentencia ni como soporte definitivo; una fuente de tipo "secondary_reference", como Ambito Juridico, solo sirve como orientacion o pista, nunca como autoridad judicial principal. Cuando menciones una sentencia, providencia, norma o fuente directa de esta lista, el vinculo debe quedar en la misma oracion o justo al lado del nombre de la sentencia o norma, no solo al final de la respuesta. Ejemplo: "CSJ SP1477-2018 [Fuente oficial](https://...)" o "articulo 88 de la Ley 906 de 2004 [Fuente oficial](https://...)". Tambien puede repetirse en el apartado de fuentes. Si la fuente tiene extracto util, incluyelo dentro del cuerpo de la respuesta en un parrafo propio y con lenguaje practico, por ejemplo: "Aqui te presento un extracto de la sentencia que puedes usar para sustentar ante el juez: ...". Luego explica como usar ese extracto en la solicitud o intervencion oral. No lo escondas solo en las fuentes. No copies bloques excesivamente largos: selecciona o sintetiza el fragmento que sirva para sostener el argumento. No cites como verificada una fuente que no aparezca aqui o que el usuario no haya aportado. Si las fuentes disponibles no tratan directamente el punto pedido, dilo expresamente y explica que se requiere una busqueda mas especifica en vez de presentar providencias apenas parecidas como si fueran suficientes.`
     : "";
@@ -133,7 +137,7 @@ async function buildSystemPrompt(options = {}) {
   const aiConfig = await getAiConfig();
   const activeRules = (aiConfig.customRules || MASTER_PROMPT).trim();
 
-  return `${activeRules}${userContext}${activeConversationContext}${internalLibraryContext}${verifiedSourcesContext}`;
+  return `${activeRules}${userContext}${activeConversationContext}${internalLibraryContext}${activeLearningContext}${verifiedSourcesContext}`;
 }
 
 export async function generarRespuestaLegal(mensaje, options = {}) {

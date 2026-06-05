@@ -11,6 +11,7 @@ import chatRoutes from "./routes/chats.js";
 import jurisprudenceRoutes from "./routes/jurisprudence.js";
 import libraryRoutes from "./routes/library.js";
 import configRoutes from "./routes/config.js";
+import learningRoutes from "./routes/learning.js";
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use("/api/chats", chatRoutes);
 app.use("/api/jurisprudence", jurisprudenceRoutes);
 app.use("/api/library", libraryRoutes);
 app.use("/api/config", configRoutes);
+app.use("/api/learning", learningRoutes);
 
 app.get("/", (req, res) => {
   res.sendFile("frontend/index.html", { root: process.cwd() });

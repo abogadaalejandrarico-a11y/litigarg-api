@@ -181,6 +181,37 @@ async function ensureSchema() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS response_feedback (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        chat_id TEXT,
+        user_message TEXT,
+        assistant_answer TEXT,
+        rating TEXT NOT NULL,
+        correction TEXT,
+        is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+        sources JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS learned_guidance (
+        id SERIAL PRIMARY KEY,
+        source_feedback_id INTEGER REFERENCES response_feedback(id) ON DELETE SET NULL,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        problem_pattern TEXT NOT NULL,
+        guidance TEXT NOT NULL,
+        tags JSONB DEFAULT '[]'::jsonb,
+        weight INTEGER NOT NULL DEFAULT 1,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS project_authorship (
         id INTEGER PRIMARY KEY DEFAULT 1,
         project_name TEXT NOT NULL,
@@ -227,6 +258,8 @@ async function readJsonDB() {
   db.jurisprudenceLibrary = db.jurisprudenceLibrary || [];
   db.aiConfig = db.aiConfig || { customRules: "", updatedBy: null, updatedAt: null };
   db.projectAuthorship = db.projectAuthorship || null;
+  db.responseFeedback = db.responseFeedback || [];
+  db.learnedGuidance = db.learnedGuidance || [];
 
   return db;
 }

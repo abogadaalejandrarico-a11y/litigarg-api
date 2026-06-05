@@ -20,6 +20,10 @@ import {
   findRelevantJurisprudence,
   saveJurisprudenceSources
 } from "../services/jurisprudenceLibrary.js";
+import {
+  findRelevantGuidance,
+  formatGuidanceContext
+} from "../services/learning.js";
 import { getChatMemoryContext } from "../services/chats.js";
 import { readDB } from "../db/db.js";
 
@@ -147,6 +151,16 @@ async function getLibraryContext(text) {
   }
 }
 
+async function getLearningContext(text) {
+  try {
+    const guidance = await findRelevantGuidance(text);
+    return formatGuidanceContext(guidance);
+  } catch (error) {
+    console.error("ERROR BUSCANDO APRENDIZAJES:", error);
+    return "";
+  }
+}
+
 router.post("/chat", authMiddlewares, async (req, res) => {
   try {
     const { message, conversationId } = req.body;
@@ -171,6 +185,7 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     const sourceSearchNeeded = shouldSearchJurisprudence(message);
     const sources = await getOfficialSources(message);
     const libraryContext = await getLibraryContext(message);
+    const learningContext = await getLearningContext(message);
     const conversationContext = await getChatMemoryContext(userId, conversationId, {
       excludeLatestUserText: message
     });
@@ -178,6 +193,7 @@ router.post("/chat", authMiddlewares, async (req, res) => {
       userName,
       conversationContext,
       libraryContext,
+      learningContext,
       sourcesContext: sources.length
         ? formatSourcesForPrompt(sources)
         : sourceSearchNeeded
@@ -305,6 +321,7 @@ ${documentText}
     const sourceSearchNeeded = shouldSearchJurisprudence(sourceQuery);
     const sources = await getOfficialSources(sourceQuery);
     const libraryContext = await getLibraryContext(sourceQuery);
+    const learningContext = await getLearningContext(sourceQuery);
     const conversationContext = await getChatMemoryContext(userId, conversationId, {
       excludeLatestUserText: visibleUserMessage
     });
@@ -312,6 +329,7 @@ ${documentText}
       userName,
       conversationContext,
       libraryContext,
+      learningContext,
       sourcesContext: sources.length
         ? formatSourcesForPrompt(sources)
         : sourceSearchNeeded
