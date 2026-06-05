@@ -3900,7 +3900,17 @@ function buildSourcesHtml(sources){
         : "Documento aportado: " + title;
 
       if(source.url){
+        const officialLinks = [
+          source.officialViewerUrl
+            ? '<a href="' + escapeAttribute(source.officialViewerUrl) + '" target="_blank" rel="noopener noreferrer">Visor oficial</a>'
+            : "",
+          source.officialSearchUrl
+            ? '<a href="' + escapeAttribute(source.officialSearchUrl) + '" target="_blank" rel="noopener noreferrer">Busqueda oficial</a>'
+            : ""
+        ].filter(Boolean).join(" · ");
+
         return '<div><a href="' + escapeAttribute(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + "</a>" +
+          (officialLinks ? "<p>" + officialLinks + "</p>" : "") +
           topics +
           "</div>";
       }

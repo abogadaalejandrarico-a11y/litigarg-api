@@ -74,6 +74,39 @@ async function getUserName(userId) {
   return user?.username || user?.email?.split("@")[0] || "";
 }
 
+function normalizeForSourceScore(value = "") {
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function scoreResponseSource(source = {}, query = "") {
+  const haystack = normalizeForSourceScore([
+    source.title,
+    source.extract,
+    source.snippet,
+    source.fileName,
+    source.topics?.join(" ")
+  ].filter(Boolean).join(" "));
+  const terms = normalizeForSourceScore(query)
+    .split(/\s+/)
+    .filter(term => term.length > 4);
+
+  let score = Number(source.relevanceScore || 0);
+
+  if (source.official) score += 8;
+  if (source.verified) score += 5;
+  if (source.extract || source.snippet) score += 2;
+  if (source.year && Number(source.year) >= 2020) score += 1;
+
+  for (const term of terms.slice(0, 10)) {
+    if (haystack.includes(term)) score += 1;
+  }
+
+  return score;
+}
+
 async function getOfficialSources(text) {
   if (!shouldSearchJurisprudence(text)) {
     return [];
@@ -84,7 +117,9 @@ async function getOfficialSources(text) {
     const officialSources = result.sources || [];
     await saveJurisprudenceSources(officialSources, text);
 
-    const librarySources = await findRelevantJurisprudence(text);
+    const librarySources = officialSources.length >= 3
+      ? []
+      : await findRelevantJurisprudence(text, 3);
     const byUrl = new Map();
 
     [...officialSources, ...librarySources].forEach(source => {
@@ -93,7 +128,9 @@ async function getOfficialSources(text) {
       }
     });
 
-    return [...byUrl.values()];
+    return [...byUrl.values()]
+      .sort((a, b) => scoreResponseSource(b, text) - scoreResponseSource(a, text))
+      .slice(0, 4);
   } catch (error) {
     console.error("ERROR BUSCANDO FUENTES OFICIALES:", error);
     return [];

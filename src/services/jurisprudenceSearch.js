@@ -2,14 +2,21 @@ const CSJ_API_URL = "https://consultaprovidenciasbk.cortesuprema.gov.co/api";
 const CSJ_VIEWER_URL = "https://consultaprovidencias.cortesuprema.gov.co/visualizador";
 const CC_RELATORIA_URL = "https://www.corteconstitucional.gov.co/relatoria";
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || "https://litigarg-api.onrender.com").replace(/\/$/, "");
-const MAX_SOURCES_FOR_ANSWER = 2;
+const MAX_SOURCES_FOR_ANSWER = 4;
 const LEY_906_ART_88_URL = "https://www.secretariasenado.gov.co/senado/basedoc/ley_0906_2004a_pr002.html#88";
 
 const SEARCH_TRIGGERS = [
   "jurisprudencia",
+  "jurisprudencia actualizada",
   "sentencia",
   "providencia",
+  "fuente oficial",
+  "fuentes oficiales",
   "radicado",
+  "norma",
+  "articulo",
+  "ley 906",
+  "codigo de procedimiento penal",
   "corte suprema",
   "corte constitucional",
   "sala penal",
@@ -35,11 +42,15 @@ const LEGAL_SYNONYMS = [
   {
     when: ["devolucion", "arma"],
     searches: [
+      "articulo 88 ley 906 devolucion arma incautada",
+      "devolucion bien incautado articulo 88 ley 906",
       "devolucion arma",
       "devolucion de armas",
+      "situacion juridica arma incautada",
       "entrega arma incautada",
       "comiso arma devolucion",
-      "incautacion arma devolucion"
+      "incautacion arma devolucion",
+      "destruccion arma articulo 563 ley 906"
     ]
   },
   {
@@ -49,6 +60,22 @@ const LEGAL_SYNONYMS = [
       "intimidacion con arma",
       "amenaza arma de fuego",
       "violencia arma de fuego"
+    ]
+  },
+  {
+    when: ["medida", "aseguramiento"],
+    searches: [
+      "medida de aseguramiento inferencia razonable finalidad constitucional",
+      "medida de aseguramiento necesidad proporcionalidad juez de control de garantias",
+      "detencion preventiva peligro para la comunidad comparecencia"
+    ]
+  },
+  {
+    when: ["prueba", "documental"],
+    searches: [
+      "prueba documental incorporacion publicidad contradiccion juicio oral",
+      "articulo 431 ley 906 prueba documental lectura incorporacion",
+      "estipulaciones probatorias documento hecho estipulado"
     ]
   }
 ];
@@ -84,10 +111,19 @@ function extractSearchTerms(query = "") {
     .filter(term => term.length > 3 && !STOP_WORDS.has(term));
 }
 
+function extractLegalReferences(query = "") {
+  return [
+    ...(cleanText(query).match(/\b(?:SP|AP|CP)[-\s]?\d{1,6}[-\s]?\d{4}\b/gi) || []),
+    ...(cleanText(query).match(/\b(?:SU|T|C)[-\s]?\d{1,4}[-\s]?\d{2,4}\b/gi) || []),
+    ...(cleanText(query).match(/\brad(?:icado)?\.?\s*\d{4,8}\b/gi) || [])
+  ].map(reference => cleanText(reference));
+}
+
 function buildSearchQueries(query = "") {
   const normalized = normalizeText(query);
   const terms = extractSearchTerms(query);
-  const searches = [];
+  const references = extractLegalReferences(query);
+  const searches = [...references];
 
   for (const rule of LEGAL_SYNONYMS) {
     if (rule.when.every(term => normalized.includes(term))) {
@@ -104,9 +140,26 @@ function buildSearchQueries(query = "") {
     }
   }
 
+  if (normalized.includes("devolucion") && /(arma|bien|bienes|incaut|ocupad)/.test(normalized)) {
+    searches.push("devolucion bienes incautados no necesarios investigacion comiso");
+    searches.push("arma incautada comiso devolucion debido proceso");
+  }
+
   searches.push(cleanText(query));
 
   return [...new Set(searches.map(cleanText).filter(Boolean))].slice(0, 7);
+}
+
+function getQueryIntent(query = "") {
+  const normalized = normalizeText(query);
+
+  return {
+    wantsReturnOfSeizedProperty: normalized.includes("devolucion") && /(arma|bien|bienes|incaut|ocupad|comiso)/.test(normalized),
+    mentionsWeapon: /(arma|armas|fuego|pistola|revolver|salvoconducto)/.test(normalized),
+    mentionsThreatOrIntimidation: /(intimidacion|amenaza|amenazas|constreñimiento|violencia)/.test(normalized),
+    mentionsDetentionMeasure: /(medida de aseguramiento|detencion preventiva|intramural|peligro para la comunidad)/.test(normalized),
+    mentionsDocumentaryEvidence: /(prueba documental|documento|estipulacion|incorporacion|lectura)/.test(normalized)
+  };
 }
 
 function normalizeCsjResult(result, query) {
@@ -144,6 +197,7 @@ function normalizeCsjResult(result, query) {
 
 function scoreSource(source, originalQuery = "") {
   const terms = extractSearchTerms(originalQuery);
+  const intent = getQueryIntent(originalQuery);
   const haystack = normalizeText([
     source.title,
     source.extract,
@@ -156,12 +210,34 @@ function scoreSource(source, originalQuery = "") {
     if (haystack.includes(term)) score += 2;
   }
 
-  if (normalizeText(originalQuery).includes("devolucion") && !/(devolucion|entrega|incaut|comiso)/.test(haystack)) {
-    score -= 4;
+  if (intent.wantsReturnOfSeizedProperty) {
+    if (/(devolucion|entrega|incaut|ocupad|bien|bienes)/.test(haystack)) {
+      score += 6;
+    } else if (/(comiso|decomiso)/.test(haystack)) {
+      score -= 2;
+    } else {
+      score -= 8;
+    }
+
+    if (intent.mentionsWeapon && /(arma|armas|fuego|pistola|revolver)/.test(haystack)) {
+      score += 3;
+    }
   }
 
-  if (normalizeText(originalQuery).includes("intimidacion") && !/(intimidacion|amenaza|violencia)/.test(haystack)) {
-    score -= 3;
+  if (intent.mentionsThreatOrIntimidation) {
+    if (/(intimidacion|amenaza|amenazas|constreñimiento|violencia)/.test(haystack)) {
+      score += 3;
+    } else if (!intent.wantsReturnOfSeizedProperty) {
+      score -= 4;
+    }
+  }
+
+  if (intent.mentionsDetentionMeasure && /(medida de aseguramiento|detencion preventiva|peligro para la comunidad|comparecencia|inferencia razonable)/.test(haystack)) {
+    score += 5;
+  }
+
+  if (intent.mentionsDocumentaryEvidence && /(prueba documental|documento|incorporacion|estipulacion|publicidad|contradiccion|lectura)/.test(haystack)) {
+    score += 5;
   }
 
   if (source.year && Number(source.year) >= 2020) score += 1;
@@ -169,6 +245,34 @@ function scoreSource(source, originalQuery = "") {
   if (source.extract) score += 1;
 
   return score;
+}
+
+function isSourcePertinent(source, originalQuery = "") {
+  const score = source.relevanceScore ?? scoreSource(source, originalQuery);
+  const intent = getQueryIntent(originalQuery);
+  const haystack = normalizeText([
+    source.title,
+    source.extract,
+    source.fileName
+  ].filter(Boolean).join(" "));
+
+  if (intent.wantsReturnOfSeizedProperty) {
+    const returnOfPropertyPattern = /(articulo 88|devolucion de bienes|bienes o recursos|bienes incaut|bien incaut|arma incaut|incaut|ocupad|fines de comiso)/;
+
+    if (!returnOfPropertyPattern.test(haystack)) {
+      return false;
+    }
+  }
+
+  if (intent.mentionsDetentionMeasure && !/(medida de aseguramiento|detencion preventiva|peligro para la comunidad|comparecencia|inferencia razonable|libertad)/.test(haystack)) {
+    return score >= 10;
+  }
+
+  if (intent.mentionsDocumentaryEvidence && !/(prueba documental|documento|incorporacion|estipulacion|publicidad|contradiccion|lectura)/.test(haystack)) {
+    return score >= 10;
+  }
+
+  return score >= 6;
 }
 
 function getConstitutionalCandidates(reference) {
@@ -299,7 +403,7 @@ async function searchCorteSuprema(query) {
   });
 
   return [...byPath.values()]
-    .filter(source => source.relevanceScore >= 6)
+    .filter(source => isSourcePertinent(source, query))
     .sort((a, b) => b.relevanceScore - a.relevanceScore || Number(b.year || 0) - Number(a.year || 0))
     .slice(0, MAX_SOURCES_FOR_ANSWER);
 }
@@ -363,6 +467,8 @@ export function formatSourcesForPrompt(sources = []) {
         source.room ? `Sala: ${source.room}` : "",
         source.year ? `Ano: ${source.year}` : "",
         source.url ? `Enlace oficial: ${source.url}` : "",
+        source.officialViewerUrl ? `Visor oficial: ${source.officialViewerUrl}` : "",
+        source.officialSearchUrl ? `Busqueda oficial: ${source.officialSearchUrl}` : "",
         source.topics?.length ? `Temas asociados: ${source.topics.join(", ")}` : "",
         source.extract ? `Extracto util para sustentar la respuesta: ${source.extract}` : "",
         source.snippet && !source.extract ? `Fragmento orientador: ${source.snippet}` : ""
