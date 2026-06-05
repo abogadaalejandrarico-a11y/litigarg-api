@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import OpenAI from "openai";
+import { toFile } from "openai/uploads";
 import { getAiConfig } from "./aiConfig.js";
 
 const client = new OpenAI({
@@ -182,4 +183,18 @@ export async function generarRespuestaLegalConImagen(file, mensaje, options = {}
   });
 
   return completion.choices[0].message.content;
+}
+
+export async function transcribirAudio(file) {
+  const audioFile = await toFile(file.buffer, file.originalname || "audio.mp3", {
+    type: file.mimetype || "audio/mpeg"
+  });
+
+  const transcription = await client.audio.transcriptions.create({
+    file: audioFile,
+    model: "gpt-4o-mini-transcribe",
+    language: "es"
+  });
+
+  return transcription.text || "";
 }

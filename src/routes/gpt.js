@@ -2,9 +2,10 @@ import express from "express";
 import multer from "multer";
 import authMiddlewares from "../middlewares/auth.js";
 import { getUserPlan } from "../services/subscription.js";
+import { getPlanAudioMaxBytes } from "../services/plans.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
-import { extractDocumentText, isSupportedImageFile } from "../services/documentText.js";
-import { generarRespuestaLegal, generarRespuestaLegalConImagen } from "../services/openai.js";
+import { extractDocumentText, isSupportedAudioFile, isSupportedImageFile } from "../services/documentText.js";
+import { generarRespuestaLegal, generarRespuestaLegalConImagen, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
   formatDocumentContext
@@ -25,7 +26,7 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 12 * 1024 * 1024
+    fileSize: 25 * 1024 * 1024
   }
 });
 
@@ -55,7 +56,11 @@ async function finishUsage(userId, kind = "message") {
 }
 
 function limitMessage(kind, planName) {
-  const feature = kind === "file" ? "analisis de archivos" : "preguntas";
+  const feature = kind === "file"
+    ? "analisis de archivos"
+    : kind === "audio"
+      ? "analisis de audios"
+      : "preguntas";
   return `Se acabo tu limite diario de ${feature} del plan ${planName}. Podras volver a usarlo cuando se recargue tu cupo diario o cambiar a un plan superior para ampliar tus limites.`;
 }
 
@@ -157,12 +162,14 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
   try {
     const userId = req.user.userId;
     const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigacion penal y argumentacion juridica.";
-    const access = await checkAccess(userId, "file");
+    const isAudio = isSupportedAudioFile(req.file);
+    const accessKind = isAudio ? "audio" : "file";
+    const access = await checkAccess(userId, accessKind);
 
     if (!access.allowed) {
       return res.status(403).json({
         code: "DAILY_LIMIT_REACHED",
-        error: limitMessage("file", access.plan.name),
+        error: limitMessage(accessKind, access.plan.name),
         usage: access.usage,
         freeUsage: access.usage.messages
       });
@@ -170,11 +177,35 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
 
     const userName = await getUserName(userId);
     const isImage = isSupportedImageFile(req.file);
+    const maxAudioBytes = getPlanAudioMaxBytes(access.plan.id, { admin: access.plan.id === "admin" });
     let message = "";
     let sourceQuery = `${prompt}\n${req.file.originalname}`;
     let respuesta = "";
 
-    if (isImage) {
+    if (isAudio) {
+      if (!maxAudioBytes || req.file.size > maxAudioBytes) {
+        const maxMb = Math.round(maxAudioBytes / 1024 / 1024);
+        return res.status(400).json({
+          error: `Tu plan permite audios de hasta ${maxMb} MB.`
+        });
+      }
+
+      const transcription = await transcribirAudio(req.file);
+
+      if (!transcription) {
+        return res.status(400).json({ error: "No pude transcribir el audio." });
+      }
+
+      message = `
+${prompt}
+
+Nombre del archivo: ${req.file.originalname}
+
+Transcripcion del audio:
+${transcription}
+      `.trim();
+      sourceQuery = `${prompt}\n${req.file.originalname}\n${transcription.slice(0, 3000)}`;
+    } else if (isImage) {
       message = `
 ${prompt}
 
@@ -220,7 +251,7 @@ ${documentText}
     }
 
     const linkedAnswer = addInlineSourceLinks(respuesta, sources);
-    const updatedUsage = await finishUsage(userId, "file");
+    const updatedUsage = await finishUsage(userId, accessKind);
 
     res.json({
       answer: linkedAnswer,

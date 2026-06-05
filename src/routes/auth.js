@@ -249,6 +249,8 @@ router.get("/me", authMiddlewares, async (req, res) => {
         name: plan.name,
         messagesPerDay: plan.messagesPerDay,
         filesPerDay: plan.filesPerDay,
+        audiosPerDay: plan.audiosPerDay,
+        audioMaxMb: plan.audioMaxMb,
         chatLimit: plan.chatLimit
       }
     });

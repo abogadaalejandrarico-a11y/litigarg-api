@@ -31,6 +31,7 @@ function normalizeDailyUsage(usage) {
       userId: null,
       used: 0,
       fileUsed: 0,
+      audioUsed: 0,
       usageDate: today,
       created_at: new Date().toISOString()
     };
@@ -39,11 +40,13 @@ function normalizeDailyUsage(usage) {
   if (usage.usageDate !== today) {
     usage.used = 0;
     usage.fileUsed = 0;
+    usage.audioUsed = 0;
     usage.usageDate = today;
     usage.updated_at = new Date().toISOString();
   }
 
   usage.fileUsed = usage.fileUsed || usage.file_used || 0;
+  usage.audioUsed = usage.audioUsed || usage.audio_used || 0;
 
   return usage;
 }
@@ -60,6 +63,7 @@ function buildCounter({ used, limit, usageDate }) {
 function buildUsageSummary(usage, plan) {
   const messageLimit = getPlanDailyLimit(plan.id, "message", { admin: plan.id === "admin" });
   const fileLimit = getPlanDailyLimit(plan.id, "file", { admin: plan.id === "admin" });
+  const audioLimit = getPlanDailyLimit(plan.id, "audio", { admin: plan.id === "admin" });
 
   return {
     plan: {
@@ -74,6 +78,11 @@ function buildUsageSummary(usage, plan) {
     files: buildCounter({
       used: usage.fileUsed || 0,
       limit: fileLimit,
+      usageDate: usage.usageDate
+    }),
+    audios: buildCounter({
+      used: usage.audioUsed || 0,
+      limit: audioLimit,
       usageDate: usage.usageDate
     })
   };
@@ -112,6 +121,8 @@ export async function incrementDailyUsage(userId, kind = "message") {
 
   if (kind === "file") {
     usage.fileUsed = (usage.fileUsed || 0) + 1;
+  } else if (kind === "audio") {
+    usage.audioUsed = (usage.audioUsed || 0) + 1;
   } else {
     usage.used = (usage.used || 0) + 1;
   }
@@ -125,7 +136,11 @@ export async function incrementDailyUsage(userId, kind = "message") {
 
 export async function canUseDailyFeature(userId, kind = "message") {
   const usage = await getDailyUsage(userId);
-  const counter = kind === "file" ? usage.files : usage.messages;
+  const counter = kind === "file"
+    ? usage.files
+    : kind === "audio"
+      ? usage.audios
+      : usage.messages;
 
   return {
     allowed: counter.limit === null || counter.remaining > 0,

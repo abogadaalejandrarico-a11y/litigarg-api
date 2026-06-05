@@ -84,6 +84,7 @@ async function ensureSchema() {
         user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         used INTEGER NOT NULL DEFAULT 0,
         file_used INTEGER NOT NULL DEFAULT 0,
+        audio_used INTEGER NOT NULL DEFAULT 0,
         usage_date TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -92,6 +93,7 @@ async function ensureSchema() {
 
     await client.query("ALTER TABLE free_usage ADD COLUMN IF NOT EXISTS usage_date TEXT");
     await client.query("ALTER TABLE free_usage ADD COLUMN IF NOT EXISTS file_used INTEGER NOT NULL DEFAULT 0");
+    await client.query("ALTER TABLE free_usage ADD COLUMN IF NOT EXISTS audio_used INTEGER NOT NULL DEFAULT 0");
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS chats (
@@ -309,6 +311,7 @@ export async function readDB() {
         userId: row.user_id,
         used: row.used,
         fileUsed: row.file_used || 0,
+        audioUsed: row.audio_used || 0,
         usageDate: row.usage_date,
         created_at: toIso(row.created_at),
         updated_at: toIso(row.updated_at)
@@ -431,11 +434,12 @@ export async function writeDB(data) {
     for (const usage of data.freeUsage || []) {
       await client.query(
         `
-          INSERT INTO free_usage (user_id, used, file_used, usage_date, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, COALESCE($5::timestamptz, NOW()), COALESCE($6::timestamptz, NOW()))
+          INSERT INTO free_usage (user_id, used, file_used, audio_used, usage_date, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()), COALESCE($7::timestamptz, NOW()))
           ON CONFLICT (user_id) DO UPDATE SET
             used = EXCLUDED.used,
             file_used = EXCLUDED.file_used,
+            audio_used = EXCLUDED.audio_used,
             usage_date = EXCLUDED.usage_date,
             updated_at = EXCLUDED.updated_at
         `,
@@ -443,6 +447,7 @@ export async function writeDB(data) {
           usage.userId,
           usage.used || 0,
           usage.fileUsed || usage.file_used || 0,
+          usage.audioUsed || usage.audio_used || 0,
           usage.usageDate || usage.usage_date || null,
           usage.created_at || null,
           usage.updated_at || null
