@@ -45,12 +45,10 @@ const IMAGE_MIME_TYPES = new Set([
 ]);
 const AUDIO_EXTENSIONS = new Set([
   ".mp3",
-  ".mp4",
   ".mpeg",
   ".mpga",
   ".m4a",
   ".wav",
-  ".webm",
   ".ogg"
 ]);
 const AUDIO_MIME_TYPES = new Set([
@@ -62,9 +60,19 @@ const AUDIO_MIME_TYPES = new Set([
   "audio/wav",
   "audio/x-wav",
   "audio/webm",
-  "audio/ogg",
+  "audio/ogg"
+]);
+const VIDEO_EXTENSIONS = new Set([
+  ".mp4",
+  ".webm",
+  ".mov",
+  ".m4v"
+]);
+const VIDEO_MIME_TYPES = new Set([
   "video/mp4",
-  "video/webm"
+  "video/webm",
+  "video/quicktime",
+  "video/x-m4v"
 ]);
 
 export async function extractDocumentText(file, options = {}) {
@@ -127,6 +135,17 @@ export function isSupportedAudioFile(file) {
   const name = (file.originalname || "").toLowerCase();
 
   return AUDIO_MIME_TYPES.has(mimeType) || [...AUDIO_EXTENSIONS].some(extension => name.endsWith(extension));
+}
+
+export function isSupportedVideoFile(file) {
+  if (!file) {
+    return false;
+  }
+
+  const mimeType = file.mimetype || "";
+  const name = (file.originalname || "").toLowerCase();
+
+  return VIDEO_MIME_TYPES.has(mimeType) || [...VIDEO_EXTENSIONS].some(extension => name.endsWith(extension));
 }
 
 function cleanText(text, maxChars = MAX_DOCUMENT_CHARS) {

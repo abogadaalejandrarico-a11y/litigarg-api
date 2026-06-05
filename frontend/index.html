@@ -1699,7 +1699,7 @@ body{
         <input
           type="file"
           id="fileInput"
-          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,.png,.jpg,.jpeg,.webp,.mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm,.ogg,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp,audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg,video/mp4,video/webm"
+          accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,.png,.jpg,.jpeg,.webp,.mp3,.mpeg,.mpga,.m4a,.wav,.ogg,.mp4,.webm,.mov,.m4v,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp,audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg,video/mp4,video/webm,video/quicktime"
           style="display:none"
           onchange="handleFileSelected()"
         >
@@ -1742,6 +1742,7 @@ body{
           <li>Consultas limitadas.</li>
           <li>Carga de archivos limitada.</li>
           <li>Audios disponibles en planes Pro y Plus.</li>
+          <li>Videos disponibles en plan Plus.</li>
           <li>Historial de hasta 5 conversaciones.</li>
           <li>Acceso limitado con recarga diaria.</li>
         </ul>
@@ -1756,6 +1757,7 @@ body{
           <li>Hasta 50 consultas al dia.</li>
           <li>Carga de hasta 20 archivos al dia.</li>
           <li>Analisis de hasta 10 audios cortos al dia, hasta 10 MB por audio.</li>
+          <li>Videos disponibles en plan Plus.</li>
           <li>Historial de hasta 20 conversaciones.</li>
           <li>Mayor capacidad para consultas juridicas penales diarias.</li>
         </ul>
@@ -1770,6 +1772,7 @@ body{
           <li>Hasta 100 consultas al dia.</li>
           <li>Carga de hasta 50 archivos al dia.</li>
           <li>Analisis de hasta 25 audios amplios al dia, hasta 25 MB por audio.</li>
+          <li>Analisis de hasta 5 videos al dia, hasta 25 MB por video.</li>
           <li>Historial de hasta 100 conversaciones.</li>
           <li>Para litigantes penalistas con alto grado de argumentacion, estudio de casos y consultas juridicas penales diarias.</li>
         </ul>
@@ -2186,8 +2189,11 @@ function getSupportedUserFileExtensions(){
     ".mpga",
     ".m4a",
     ".wav",
+    ".ogg",
+    ".mp4",
     ".webm",
-    ".ogg"
+    ".mov",
+    ".m4v"
   ];
 }
 
@@ -2245,7 +2251,7 @@ function handleFileSelected(){
   }
 
   if(!isSupportedUserFile(file)){
-    alert("Formato no soportado por ahora. Puedes subir PDF, DOCX, imagenes PNG/JPG/WEBP, audios MP3/M4A/WAV/WEBM/OGG o archivos de texto, codigo, CSV, JSON, HTML, Markdown, XML, YAML o SQL.");
+    alert("Formato no soportado por ahora. Puedes subir PDF, DOCX, imagenes PNG/JPG/WEBP, audios MP3/M4A/WAV/OGG, videos MP4/WEBM/MOV o archivos de texto, codigo, CSV, JSON, HTML, Markdown, XML, YAML o SQL.");
     clearAttachedFile();
     return;
   }
@@ -2709,6 +2715,7 @@ function updateUsageStatus(usage){
   const messages = usage.messages || {};
   const files = usage.files || {};
   const audios = usage.audios || {};
+  const videos = usage.videos || {};
 
   if(messages.limit === null){
     status.innerHTML = "<strong>Uso administradora:</strong> sin límites diarios.";
@@ -2720,6 +2727,7 @@ function updateUsageStatus(usage){
     "preguntas " + messages.remaining + "/" + messages.limit +
     " · archivos " + files.remaining + "/" + files.limit +
     " · audios " + audios.remaining + "/" + audios.limit +
+    " · videos " + videos.remaining + "/" + videos.limit +
     " · se recarga " + formatResetTime(messages.resetsAt);
 }
 

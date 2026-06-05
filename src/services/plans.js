@@ -19,6 +19,8 @@ export const PLAN_LIMITS = {
     filesPerDay: 8,
     audiosPerDay: 0,
     audioMaxMb: 0,
+    videosPerDay: 0,
+    videoMaxMb: 0,
     chatLimit: 5
   },
   [PLAN_IDS.PRO]: {
@@ -29,6 +31,8 @@ export const PLAN_LIMITS = {
     filesPerDay: 20,
     audiosPerDay: 10,
     audioMaxMb: 10,
+    videosPerDay: 0,
+    videoMaxMb: 0,
     chatLimit: 20
   },
   [PLAN_IDS.PLUS]: {
@@ -39,6 +43,8 @@ export const PLAN_LIMITS = {
     filesPerDay: 50,
     audiosPerDay: 25,
     audioMaxMb: 25,
+    videosPerDay: 5,
+    videoMaxMb: 25,
     chatLimit: 100
   },
   [PLAN_IDS.ADMIN]: {
@@ -49,6 +55,8 @@ export const PLAN_LIMITS = {
     filesPerDay: null,
     audiosPerDay: null,
     audioMaxMb: 25,
+    videosPerDay: null,
+    videoMaxMb: 25,
     chatLimit: 500
   }
 };
@@ -81,12 +89,18 @@ export function getPlanDailyLimit(plan, kind, options = {}) {
 
   if (kind === "file") return config.filesPerDay;
   if (kind === "audio") return config.audiosPerDay;
+  if (kind === "video") return config.videosPerDay;
   return config.messagesPerDay;
 }
 
 export function getPlanAudioMaxBytes(plan, options = {}) {
   const config = getPlanConfig(plan, options);
   return (config.audioMaxMb || 0) * 1024 * 1024;
+}
+
+export function getPlanVideoMaxBytes(plan, options = {}) {
+  const config = getPlanConfig(plan, options);
+  return (config.videoMaxMb || 0) * 1024 * 1024;
 }
 
 export function isPaidPlan(plan) {

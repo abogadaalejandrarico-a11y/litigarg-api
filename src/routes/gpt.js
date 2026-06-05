@@ -2,9 +2,9 @@ import express from "express";
 import multer from "multer";
 import authMiddlewares from "../middlewares/auth.js";
 import { getUserPlan } from "../services/subscription.js";
-import { getPlanAudioMaxBytes } from "../services/plans.js";
+import { getPlanAudioMaxBytes, getPlanVideoMaxBytes } from "../services/plans.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
-import { extractDocumentText, isSupportedAudioFile, isSupportedImageFile } from "../services/documentText.js";
+import { extractDocumentText, isSupportedAudioFile, isSupportedImageFile, isSupportedVideoFile } from "../services/documentText.js";
 import { generarRespuestaLegal, generarRespuestaLegalConImagen, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
@@ -60,6 +60,8 @@ function limitMessage(kind, planName) {
     ? "analisis de archivos"
     : kind === "audio"
       ? "analisis de audios"
+      : kind === "video"
+        ? "analisis de videos"
       : "preguntas";
   return `Se acabo tu limite diario de ${feature} del plan ${planName}. Podras volver a usarlo cuando se recargue tu cupo diario o cambiar a un plan superior para ampliar tus limites.`;
 }
@@ -162,8 +164,9 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
   try {
     const userId = req.user.userId;
     const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigacion penal y argumentacion juridica.";
-    const isAudio = isSupportedAudioFile(req.file);
-    const accessKind = isAudio ? "audio" : "file";
+    const isVideo = isSupportedVideoFile(req.file);
+    const isAudio = !isVideo && isSupportedAudioFile(req.file);
+    const accessKind = isVideo ? "video" : isAudio ? "audio" : "file";
     const access = await checkAccess(userId, accessKind);
 
     if (!access.allowed) {
@@ -178,11 +181,35 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
     const userName = await getUserName(userId);
     const isImage = isSupportedImageFile(req.file);
     const maxAudioBytes = getPlanAudioMaxBytes(access.plan.id, { admin: access.plan.id === "admin" });
+    const maxVideoBytes = getPlanVideoMaxBytes(access.plan.id, { admin: access.plan.id === "admin" });
     let message = "";
     let sourceQuery = `${prompt}\n${req.file.originalname}`;
     let respuesta = "";
 
-    if (isAudio) {
+    if (isVideo) {
+      if (!maxVideoBytes || req.file.size > maxVideoBytes) {
+        const maxMb = Math.round(maxVideoBytes / 1024 / 1024);
+        return res.status(400).json({
+          error: `Tu plan permite videos de hasta ${maxMb} MB.`
+        });
+      }
+
+      const transcription = await transcribirAudio(req.file);
+
+      if (!transcription) {
+        return res.status(400).json({ error: "No pude extraer o transcribir el audio del video." });
+      }
+
+      message = `
+${prompt}
+
+Nombre del archivo: ${req.file.originalname}
+
+Transcripcion del audio del video:
+${transcription}
+      `.trim();
+      sourceQuery = `${prompt}\n${req.file.originalname}\n${transcription.slice(0, 3000)}`;
+    } else if (isAudio) {
       if (!maxAudioBytes || req.file.size > maxAudioBytes) {
         const maxMb = Math.round(maxAudioBytes / 1024 / 1024);
         return res.status(400).json({

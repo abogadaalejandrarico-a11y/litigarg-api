@@ -32,6 +32,7 @@ function normalizeDailyUsage(usage) {
       used: 0,
       fileUsed: 0,
       audioUsed: 0,
+      videoUsed: 0,
       usageDate: today,
       created_at: new Date().toISOString()
     };
@@ -41,12 +42,14 @@ function normalizeDailyUsage(usage) {
     usage.used = 0;
     usage.fileUsed = 0;
     usage.audioUsed = 0;
+    usage.videoUsed = 0;
     usage.usageDate = today;
     usage.updated_at = new Date().toISOString();
   }
 
   usage.fileUsed = usage.fileUsed || usage.file_used || 0;
   usage.audioUsed = usage.audioUsed || usage.audio_used || 0;
+  usage.videoUsed = usage.videoUsed || usage.video_used || 0;
 
   return usage;
 }
@@ -64,6 +67,7 @@ function buildUsageSummary(usage, plan) {
   const messageLimit = getPlanDailyLimit(plan.id, "message", { admin: plan.id === "admin" });
   const fileLimit = getPlanDailyLimit(plan.id, "file", { admin: plan.id === "admin" });
   const audioLimit = getPlanDailyLimit(plan.id, "audio", { admin: plan.id === "admin" });
+  const videoLimit = getPlanDailyLimit(plan.id, "video", { admin: plan.id === "admin" });
 
   return {
     plan: {
@@ -83,6 +87,11 @@ function buildUsageSummary(usage, plan) {
     audios: buildCounter({
       used: usage.audioUsed || 0,
       limit: audioLimit,
+      usageDate: usage.usageDate
+    }),
+    videos: buildCounter({
+      used: usage.videoUsed || 0,
+      limit: videoLimit,
       usageDate: usage.usageDate
     })
   };
@@ -123,6 +132,8 @@ export async function incrementDailyUsage(userId, kind = "message") {
     usage.fileUsed = (usage.fileUsed || 0) + 1;
   } else if (kind === "audio") {
     usage.audioUsed = (usage.audioUsed || 0) + 1;
+  } else if (kind === "video") {
+    usage.videoUsed = (usage.videoUsed || 0) + 1;
   } else {
     usage.used = (usage.used || 0) + 1;
   }
@@ -140,6 +151,8 @@ export async function canUseDailyFeature(userId, kind = "message") {
     ? usage.files
     : kind === "audio"
       ? usage.audios
+      : kind === "video"
+        ? usage.videos
       : usage.messages;
 
   return {
