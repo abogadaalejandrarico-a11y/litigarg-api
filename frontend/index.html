@@ -3973,6 +3973,74 @@ async function sendResponseFeedback(rating,feedback = {},sources = [],correction
 
 }
 
+function buildGlobalRuleFromCorrection(feedback = {},correction = ""){
+
+  const userMessage = (feedback.userMessage || "").trim();
+  const cleanCorrection = String(correction || "").trim();
+
+  return [
+    "",
+    "REGLA APRENDIDA POR CORRECCION DE ADMINISTRADORA",
+    userMessage ? "Cuando el usuario pregunte o plantee un caso similar a: " + userMessage : "Cuando se presente un caso similar:",
+    cleanCorrection,
+    ""
+  ].join("\n").trim();
+
+}
+
+async function saveCorrectionAsGlobalRule(feedback = {},correction = ""){
+
+  if(!profileState.canManageLibrary || !correction){
+    return false;
+  }
+
+  const globalRule = buildGlobalRuleFromCorrection(feedback,correction);
+
+  try{
+    const configRes = await fetch(API_URL + "/api/config/ai", {
+      headers:{
+        Authorization:"Bearer " + token
+      }
+    });
+
+    const config = await configRes.json();
+
+    if(!configRes.ok){
+      throw new Error(config.error || "No se pudo cargar la configuración de la IA.");
+    }
+
+    const currentRules = config.activeRules || config.customRules || config.baseRules || "";
+    const nextRules = currentRules.includes(globalRule)
+      ? currentRules
+      : currentRules.trim() + "\n\n" + globalRule;
+
+    const saveRes = await fetch(API_URL + "/api/config/ai", {
+      method:"PUT",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization:"Bearer " + token
+      },
+      body:JSON.stringify({
+        activeRules:nextRules
+      })
+    });
+
+    const saved = await saveRes.json();
+
+    if(!saveRes.ok){
+      throw new Error(saved.error || "No se pudo guardar la regla global.");
+    }
+
+    return true;
+
+  }catch(error){
+    console.error(error);
+    alert(error.message || "No se pudo guardar como regla global.");
+    return false;
+  }
+
+}
+
 function addBotActions(messageDiv,text,options = {}){
 
   const actions = document.createElement("div");
@@ -4015,16 +4083,32 @@ function addBotActions(messageDiv,text,options = {}){
     likeButton.classList.remove("active");
     const correction = prompt(
       profileState.canManageLibrary
-        ? "Como administradora, escribe que debe aprender LitigARG para responder mejor en casos parecidos:"
+        ? "Como administradora, escribe la pauta que LitigARG debe aprender para responder mejor en casos parecidos:"
         : "Cuéntanos brevemente qué debería mejorar LitigARG en esta respuesta:"
     );
+    const feedbackData = options.feedback || { assistantAnswer:text };
 
-    await sendResponseFeedback(
+    const savedFeedback = await sendResponseFeedback(
       correction ? "correction" : "dislike",
-      options.feedback || { assistantAnswer:text },
+      feedbackData,
       options.sources || [],
       correction || ""
     );
+
+    if(profileState.canManageLibrary && correction){
+      const makeGlobal = confirm(
+        "Esta corrección ya quedó guardada como pauta de entrenamiento.\n\n¿Quieres convertirla también en regla global permanente para toda la IA?"
+      );
+
+      if(makeGlobal){
+        const savedGlobal = await saveCorrectionAsGlobalRule(feedbackData,correction);
+        if(savedGlobal){
+          alert("Listo. La corrección quedó como pauta de entrenamiento y también como regla global de LitigARG.");
+        }
+      }else if(savedFeedback?.learned){
+        alert("Listo. La corrección quedó guardada como pauta de entrenamiento para casos parecidos.");
+      }
+    }
   };
 
   const sourcesButton = document.createElement("button");
