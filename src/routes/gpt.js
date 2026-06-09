@@ -101,8 +101,10 @@ function scoreResponseSource(source = {}, query = "") {
 
   if (source.official) score += 8;
   if (source.verified) score += 5;
-  if (source.extract || source.snippet) score += 2;
+  if (source.extractVerified || source.sourceType === "law") score += 4;
   if (source.year && Number(source.year) >= 2020) score += 1;
+  if (source.sourceType === "jurisprudence" && source.readStatus !== "read") score -= 20;
+  if (["repository_search", "secondary_reference"].includes(source.sourceType)) score -= 30;
 
   for (const term of terms.slice(0, 10)) {
     if (haystack.includes(term)) score += 1;
@@ -118,16 +120,19 @@ async function getOfficialSources(text) {
 
   try {
     const result = await searchJurisprudence(text);
-    const officialSources = result.sources || [];
+    const officialSources = result.answerSources || [];
     await saveJurisprudenceSources(officialSources, text);
 
-    const librarySources = officialSources.length >= 3
+    const librarySources = officialSources.length >= 2
       ? []
       : await findRelevantJurisprudence(text, 3);
     const byUrl = new Map();
 
     [...officialSources, ...librarySources].forEach(source => {
-      if (source.url && !byUrl.has(source.url)) {
+      const canBeCited = source.sourceType === "law" ||
+        (source.sourceType === "jurisprudence" && source.readStatus === "read" && source.extractVerified);
+
+      if (canBeCited && source.url && !byUrl.has(source.url)) {
         byUrl.set(source.url, source);
       }
     });

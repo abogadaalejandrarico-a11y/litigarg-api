@@ -340,12 +340,54 @@ function scoreSource(source, originalQuery = "") {
 
   if (source.year && Number(source.year) >= 2020) score += 1;
   if (source.title?.includes("SP")) score += 1;
-  if (source.extract) score += 1;
+  if (source.extractVerified || source.sourceType === "law") score += 2;
+  if (source.sourceType === "jurisprudence" && source.readStatus !== "read") score -= 8;
   if (source.sourceType === "law") score += 10;
   if (source.sourceType === "repository_search") score -= 4;
   if (source.sourceType === "secondary_reference") score -= 6;
 
   return score;
+}
+
+function hasStrongIntentMatch(source, originalQuery = "") {
+  const intent = getQueryIntent(originalQuery);
+  const haystack = normalizeText([
+    source.title,
+    source.extract,
+    source.fileName
+  ].filter(Boolean).join(" "));
+
+  if (source.sourceType === "law") {
+    return true;
+  }
+
+  if (source.sourceType === "repository_search" || source.sourceType === "secondary_reference") {
+    return false;
+  }
+
+  if (intent.wantsReturnOfSeizedProperty) {
+    const propertyMatch = /(articulo 88|devolucion|entrega|incaut|ocupad|comiso|decomiso|bienes|arma)/.test(haystack);
+    const weaponMatch = !intent.mentionsWeapon || /(arma|armas|fuego|pistola|revolver|salvoconducto)/.test(haystack);
+
+    return propertyMatch && weaponMatch;
+  }
+
+  if (intent.mentionsDetentionMeasure) {
+    return /(medida de aseguramiento|detencion preventiva|intramural|peligro para la comunidad|comparecencia|inferencia razonable|libertad)/.test(haystack);
+  }
+
+  if (intent.mentionsDocumentaryEvidence) {
+    const hasDocumentTopic = /(prueba documental|documento|documental)/.test(haystack);
+    const hasTrialUseTopic = /(incorporacion|estipulacion|publicidad|contradiccion|lectura|articulo 431|juicio oral|introduccion|autenticacion)/.test(haystack);
+
+    return hasDocumentTopic && hasTrialUseTopic;
+  }
+
+  if (intent.mentionsOrganizedCrime) {
+    return /(ley 1908|organizaciones criminales|grupo armado organizado|gao|delincuencia organizada|sometimiento)/.test(haystack);
+  }
+
+  return true;
 }
 
 function isSourcePertinent(source, originalQuery = "") {
@@ -356,6 +398,14 @@ function isSourcePertinent(source, originalQuery = "") {
     source.extract,
     source.fileName
   ].filter(Boolean).join(" "));
+
+  if (source.sourceType === "jurisprudence" && source.readStatus && source.readStatus !== "read") {
+    return false;
+  }
+
+  if (!hasStrongIntentMatch(source, originalQuery)) {
+    return false;
+  }
 
   if (intent.wantsReturnOfSeizedProperty) {
     const returnOfPropertyPattern = /(articulo 88|devolucion de bienes|bienes o recursos|bienes incaut|bien incaut|arma incaut|incaut|ocupad|fines de comiso)/;
@@ -373,7 +423,7 @@ function isSourcePertinent(source, originalQuery = "") {
     return score >= 10;
   }
 
-  return score >= 6;
+  return score >= 8;
 }
 
 function getMimeTypeFromFileName(fileName = "") {
@@ -457,13 +507,17 @@ async function fetchOfficialPathText(source = {}) {
   if (!source.officialPath) return "";
 
   const fileName = source.fileName || source.officialPath.split("/").pop() || "providencia";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
   const response = await fetch(`${CSJ_BACKEND_URL}/downloadFile`, {
     method: "POST",
+    signal: controller.signal,
     headers: {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ path: source.officialPath })
   });
+  clearTimeout(timeout);
 
   if (!response.ok) return "";
 
@@ -486,11 +540,15 @@ async function fetchOfficialPathText(source = {}) {
 async function fetchWebPageText(url = "") {
   if (!url) return "";
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
   const response = await fetch(url, {
+    signal: controller.signal,
     headers: {
       "User-Agent": "LitigARG/1.0"
     }
   });
+  clearTimeout(timeout);
 
   if (!response.ok) return "";
 
@@ -516,30 +574,60 @@ async function enrichSourceWithExtract(source = {}, query = "") {
       return source;
     }
 
+    if (source.sourceType === "law") {
+      return {
+        ...source,
+        readStatus: "read",
+        extractVerified: true,
+        verifiedText: true
+      };
+    }
+
     const rawText = source.officialPath
       ? await fetchOfficialPathText(source)
       : source.url && /^https?:\/\//i.test(source.url)
         ? await fetchWebPageText(source.url)
         : "";
     const extracted = pickRelevantExtract(rawText, query);
-    const currentExtract = source.extract || source.snippet || "";
-    const bestExtract = currentExtract && scoreParagraph(currentExtract, query) >= scoreParagraph(extracted, query)
-      ? currentExtract
-      : extracted;
 
-    if (!bestExtract) {
-      return source;
+    if (!rawText) {
+      return {
+        ...source,
+        extract: "",
+        readStatus: source.sourceType === "jurisprudence" ? "unread" : source.readStatus,
+        extractVerified: false,
+        verifiedText: false
+      };
+    }
+
+    if (!extracted) {
+      return {
+        ...source,
+        extract: "",
+        readStatus: "read",
+        readAt: new Date().toISOString(),
+        extractVerified: false,
+        verifiedText: true
+      };
     }
 
     return {
       ...source,
-      extract: bestExtract,
-      snippet: bestExtract,
+      extract: extracted,
+      snippet: extracted,
       readStatus: "read",
-      readAt: new Date().toISOString()
+      readAt: new Date().toISOString(),
+      extractVerified: true,
+      verifiedText: true
     };
   } catch {
-    return source;
+    return {
+      ...source,
+      extract: "",
+      readStatus: source.sourceType === "jurisprudence" ? "unread" : source.readStatus,
+      extractVerified: false,
+      verifiedText: false
+    };
   }
 }
 
@@ -551,8 +639,9 @@ async function enrichSourcesWithExtracts(sources = [], query = "") {
   return enriched
     .map(source => ({
       ...source,
-      relevanceScore: source.relevanceScore ?? scoreSource(source, query)
+      relevanceScore: scoreSource(source, query)
     }))
+    .filter(source => isSourcePertinent(source, query) || ["repository_search", "secondary_reference"].includes(source.sourceType))
     .sort((a, b) => b.relevanceScore - a.relevanceScore || Number(b.year || 0) - Number(a.year || 0));
 }
 
@@ -850,9 +939,16 @@ export function formatSourcesForPrompt(sources = []) {
         source.url ? `Enlace oficial: ${source.url}` : "",
         source.officialViewerUrl ? `Visor oficial: ${source.officialViewerUrl}` : "",
         source.officialSearchUrl ? `Busqueda oficial: ${source.officialSearchUrl}` : "",
+        source.readStatus ? `Estado de lectura: ${source.readStatus}` : "",
+        source.extractVerified ? "Extracto verificado en el texto leido: si" : source.sourceType === "jurisprudence" ? "Extracto verificado en el texto leido: no" : "",
         source.topics?.length ? `Temas asociados: ${source.topics.join(", ")}` : "",
-        source.extract ? `Extracto util para sustentar la respuesta: ${source.extract}` : "",
-        source.snippet && !source.extract ? `Fragmento orientador: ${source.snippet}` : ""
+        source.extract && (source.extractVerified || source.sourceType === "law")
+          ? `Extracto util para sustentar la respuesta: ${source.extract}`
+          : "",
+        source.snippet && !source.extract && source.sourceType !== "jurisprudence" ? `Fragmento orientador: ${source.snippet}` : "",
+        ["repository_search", "secondary_reference"].includes(source.sourceType)
+          ? "Advertencia: esta fuente es solo ruta de verificacion o pista secundaria; no debe citarse como sentencia ni como soporte jurisprudencial directo."
+          : ""
       ].filter(Boolean);
 
       return parts.join("\n");
@@ -961,7 +1057,7 @@ export function addInlineSourceLinks(answer = "", sources = []) {
   const linkedAliases = new Set();
 
   (Array.isArray(sources) ? sources : [])
-    .filter(source => source?.url)
+    .filter(source => source?.url && !["repository_search", "secondary_reference"].includes(source.sourceType))
     .forEach(source => {
       const aliases = getSourceAliases(source);
 
@@ -1014,15 +1110,20 @@ export async function searchJurisprudence(query) {
     ...repositorySearchSources.slice(0, Math.max(0, MAX_SOURCES_FOR_ANSWER - directSources.length))
   ];
   const sources = await enrichSourcesWithExtracts(selectedSources, query);
+  const answerSources = sources.filter(source =>
+    source.sourceType === "law" ||
+    (source.sourceType === "jurisprudence" && source.readStatus === "read" && source.extractVerified && hasStrongIntentMatch(source, query))
+  );
 
   return {
     configured: true,
     provider: "official-repositories",
-    answer: sources.length
+    answer: answerSources.length
       ? "Busqueda realizada en repositorios oficiales disponibles, con lectura y seleccion de extractos utiles cuando fue posible."
       : "No encontre una fuente oficial verificable con esta consulta inicial.",
     searchPlan,
     sources,
+    answerSources,
     officialSources: sources.filter(source => source.official),
     needsOfficialVerification: sources.some(source => !source.verified),
     errors

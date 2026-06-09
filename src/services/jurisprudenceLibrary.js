@@ -116,6 +116,8 @@ function normalizeSource(source = {}, query = "") {
       fileName: source.fileName || null,
       readStatus: source.readStatus || null,
       readAt: source.readAt || null,
+      extractVerified: Boolean(source.extractVerified),
+      verifiedText: Boolean(source.verifiedText),
       relevanceScore: source.relevanceScore ?? null
     }
   };
@@ -245,6 +247,8 @@ export async function findRelevantJurisprudence(query = "", limit = 5) {
         fileName: row.metadata?.fileName || null,
         readStatus: row.metadata?.readStatus || null,
         readAt: row.metadata?.readAt || null,
+        extractVerified: Boolean(row.metadata?.extractVerified),
+        verifiedText: Boolean(row.metadata?.verifiedText),
         relevanceScore: row.metadata?.relevanceScore ?? null
       }));
     });
@@ -280,6 +284,8 @@ export async function findRelevantJurisprudence(query = "", limit = 5) {
       fileName: item.metadata?.fileName || null,
       readStatus: item.metadata?.readStatus || null,
       readAt: item.metadata?.readAt || null,
+      extractVerified: Boolean(item.metadata?.extractVerified),
+      verifiedText: Boolean(item.metadata?.verifiedText),
       relevanceScore: item.metadata?.relevanceScore ?? null
     }));
 }
