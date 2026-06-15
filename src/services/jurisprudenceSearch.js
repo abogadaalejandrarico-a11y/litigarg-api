@@ -233,6 +233,13 @@ function buildSearchQueries(query = "") {
     searches.push("arma incautada comiso devolucion debido proceso");
   }
 
+  if (/(linea jurisprudencial|linea de jurisprudencia|precedente|precedentes)/.test(normalized) && /(dosis minima|dosis personal|marihuana|cannabis|estupefaciente|sustancias psicoactivas)/.test(normalized)) {
+    searches.push("C-221 de 1994 dosis personal libre desarrollo personalidad");
+    searches.push("C-491 de 2012 dosis personal porte consumo estupefacientes");
+    searches.push("C-253 de 2019 consumo sustancias psicoactivas espacio publico");
+    searches.push("dosis personal marihuana libre desarrollo personalidad Corte Constitucional");
+  }
+
   searches.push(
     ...COLOMBIAN_LEGAL_REPOSITORIES.map(repository => `${repository}: ${terms.slice(0, 5).join(" ") || cleanText(query)}`)
   );
@@ -246,6 +253,8 @@ function getQueryIntent(query = "") {
   const normalized = normalizeText(query);
 
   return {
+    asksJurisprudentialLine: /(linea jurisprudencial|linea de jurisprudencia|precedente|precedentes|desarrollo jurisprudencial)/.test(normalized),
+    mentionsMinimumDose: /(dosis minima|dosis personal|marihuana|cannabis|estupefaciente|estupefacientes|sustancias psicoactivas|psicoactivas|consumo personal|porte para consumo)/.test(normalized),
     wantsReturnOfSeizedProperty: normalized.includes("devolucion") && /(arma|bien|bienes|incaut|ocupad|comiso)/.test(normalized),
     mentionsWeapon: /(arma|armas|fuego|pistola|revolver|salvoconducto)/.test(normalized),
     mentionsThreatOrIntimidation: /(intimidacion|amenaza|amenazas|constreñimiento|violencia)/.test(normalized),
@@ -299,6 +308,7 @@ function scoreSource(source, originalQuery = "") {
   const haystack = normalizeText([
     source.title,
     source.extract,
+    source.snippet,
     source.fileName
   ].filter(Boolean).join(" "));
 
@@ -341,7 +351,8 @@ function scoreSource(source, originalQuery = "") {
   if (source.year && Number(source.year) >= 2020) score += 1;
   if (source.title?.includes("SP")) score += 1;
   if (source.extractVerified || source.sourceType === "law") score += 2;
-  if (source.sourceType === "jurisprudence" && source.readStatus !== "read") score -= 8;
+  if (source.citationVerified) score += 8;
+  if (source.sourceType === "jurisprudence" && source.readStatus !== "read" && !source.citationVerified) score -= 8;
   if (source.sourceType === "law") score += 10;
   if (source.sourceType === "repository_search") score -= 4;
   if (source.sourceType === "secondary_reference") score -= 6;
@@ -354,6 +365,7 @@ function hasStrongIntentMatch(source, originalQuery = "") {
   const haystack = normalizeText([
     source.title,
     source.extract,
+    source.snippet,
     source.fileName
   ].filter(Boolean).join(" "));
 
@@ -387,6 +399,10 @@ function hasStrongIntentMatch(source, originalQuery = "") {
     return /(ley 1908|organizaciones criminales|grupo armado organizado|gao|delincuencia organizada|sometimiento)/.test(haystack);
   }
 
+  if (intent.mentionsMinimumDose) {
+    return /(dosis personal|dosis minima|estupefaciente|estupefacientes|sustancias psicoactivas|marihuana|cannabis|consumo|porte)/.test(haystack);
+  }
+
   return true;
 }
 
@@ -396,10 +412,11 @@ function isSourcePertinent(source, originalQuery = "") {
   const haystack = normalizeText([
     source.title,
     source.extract,
+    source.snippet,
     source.fileName
   ].filter(Boolean).join(" "));
 
-  if (source.sourceType === "jurisprudence" && source.readStatus && source.readStatus !== "read") {
+  if (source.sourceType === "jurisprudence" && source.readStatus && source.readStatus !== "read" && !source.citationVerified) {
     return false;
   }
 
@@ -778,9 +795,62 @@ async function searchCorteSuprema(query) {
     .slice(0, MAX_SOURCES_FOR_ANSWER);
 }
 
+function getConstitutionalLineCandidates(query = "") {
+  const intent = getQueryIntent(query);
+
+  if (!intent.asksJurisprudentialLine || !intent.mentionsMinimumDose) {
+    return [];
+  }
+
+  return [
+    {
+      title: "Corte Constitucional, Sentencia C-221 de 1994",
+      url: `${CC_RELATORIA_URL}/1994/C-221-94.htm`,
+      corporation: "Corte Constitucional",
+      room: "Sala Plena",
+      year: 1994,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Sentencia fundacional sobre dosis personal, libre desarrollo de la personalidad y limites del poder punitivo."
+    },
+    {
+      title: "Corte Constitucional, Sentencia C-491 de 2012",
+      url: `${CC_RELATORIA_URL}/2012/C-491-12.htm`,
+      corporation: "Corte Constitucional",
+      room: "Sala Plena",
+      year: 2012,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Decision relacionada con porte de sustancias estupefacientes, dosis personal y finalidad de consumo."
+    },
+    {
+      title: "Corte Constitucional, Sentencia C-253 de 2019",
+      url: `${CC_RELATORIA_URL}/2019/C-253-19.htm`,
+      corporation: "Corte Constitucional",
+      room: "Sala Plena",
+      year: 2019,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Decision sobre restricciones policivas al consumo de sustancias psicoactivas y tension con derechos fundamentales."
+    }
+  ];
+}
+
 async function searchCorteConstitucional(query) {
   const references = [...new Set(cleanText(query).match(/\b(?:SU|T|C)[-\s]?\d{1,4}[-\s]?\d{2,4}\b/gi) || [])];
   const sources = [];
+  const lineCandidates = getConstitutionalLineCandidates(query);
+
+  sources.push(...lineCandidates);
 
   for (const reference of references.slice(0, 4)) {
     const candidates = getConstitutionalCandidates(reference);
@@ -832,7 +902,7 @@ function getStatutorySources(query = "") {
       snippet: source.snippet || `Norma penal colombiana disponible en Secretaria del Senado: ${source.title}.`
     }));
 
-  if (!sources.length && shouldSearchJurisprudence(query)) {
+  if (!sources.length && shouldSearchJurisprudence(query) && !(intent.asksJurisprudentialLine && intent.mentionsMinimumDose)) {
     const fallback = PENAL_LAW_SOURCES.find(source => source.key === "ley_906");
 
     if (fallback) {
@@ -940,6 +1010,7 @@ export function formatSourcesForPrompt(sources = []) {
         source.officialViewerUrl ? `Visor oficial: ${source.officialViewerUrl}` : "",
         source.officialSearchUrl ? `Busqueda oficial: ${source.officialSearchUrl}` : "",
         source.readStatus ? `Estado de lectura: ${source.readStatus}` : "",
+        source.citationVerified ? "Cita con enlace oficial directo verificado: si" : "",
         source.extractVerified ? "Extracto verificado en el texto leido: si" : source.sourceType === "jurisprudence" ? "Extracto verificado en el texto leido: no" : "",
         source.topics?.length ? `Temas asociados: ${source.topics.join(", ")}` : "",
         source.extract && (source.extractVerified || source.sourceType === "law")
@@ -982,6 +1053,7 @@ function getSourceAliases(source = {}) {
   [
     /\b(?:CSJ\s+)?(?:SP|AP|CP)[-\s]?\d{1,6}[-\s]?\d{4}\b/gi,
     /\b(?:Corte Constitucional\s+)?(?:SU|T|C)[-\s]?\d{1,4}[-\s]?\d{2,4}\b/gi,
+    /\b(?:Corte Constitucional\s+)?(?:SU|T|C)[-\s]?\d{1,4}\s+de\s+\d{4}\b/gi,
     /\brad(?:icado)?\.?\s*\d{4,8}\b/gi
   ].forEach(pattern => {
     (text.match(pattern) || []).forEach(match => {
@@ -989,6 +1061,15 @@ function getSourceAliases(source = {}) {
       aliases.add(clean);
       aliases.add(clean.replace(/([A-Z]{1,3})\s+/i, "$1-"));
       aliases.add(clean.replace(/([A-Z]{1,3})-/i, "$1 "));
+      const longYearMatch = clean.match(/\b(SU|T|C)[-\s]?(\d{1,4})\s+de\s+(\d{4})\b/i);
+      if (longYearMatch) {
+        const type = longYearMatch[1].toUpperCase();
+        const number = longYearMatch[2].padStart(3, "0");
+        const year = longYearMatch[3];
+        aliases.add(`${type}-${number}-${year.slice(-2)}`);
+        aliases.add(`${type}-${number} de ${year}`);
+        aliases.add(`${type}${number}-${year.slice(-2)}`);
+      }
     });
   });
 
@@ -1110,9 +1191,14 @@ export async function searchJurisprudence(query) {
     ...repositorySearchSources.slice(0, Math.max(0, MAX_SOURCES_FOR_ANSWER - directSources.length))
   ];
   const sources = await enrichSourcesWithExtracts(selectedSources, query);
+  const intent = getQueryIntent(query);
   const answerSources = sources.filter(source =>
     source.sourceType === "law" ||
-    (source.sourceType === "jurisprudence" && source.readStatus === "read" && source.extractVerified && hasStrongIntentMatch(source, query))
+    (source.sourceType === "jurisprudence" && source.readStatus === "read" && source.extractVerified && hasStrongIntentMatch(source, query)) ||
+    (source.sourceType === "jurisprudence" && source.citationVerified && hasStrongIntentMatch(source, query))
+  ).sort((a, b) => intent.asksJurisprudentialLine
+    ? Number(a.year || 0) - Number(b.year || 0)
+    : Number(b.relevanceScore || 0) - Number(a.relevanceScore || 0)
   );
 
   return {

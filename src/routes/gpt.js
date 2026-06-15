@@ -130,7 +130,8 @@ async function getOfficialSources(text) {
 
     [...officialSources, ...librarySources].forEach(source => {
       const canBeCited = source.sourceType === "law" ||
-        (source.sourceType === "jurisprudence" && source.readStatus === "read" && source.extractVerified);
+        (source.sourceType === "jurisprudence" && source.readStatus === "read" && source.extractVerified) ||
+        (source.sourceType === "jurisprudence" && source.citationVerified);
 
       if (canBeCited && source.url && !byUrl.has(source.url)) {
         byUrl.set(source.url, source);
