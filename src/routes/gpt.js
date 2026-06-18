@@ -82,8 +82,13 @@ function buildResponseGuidance(message = "") {
       "La usuaria pidio una estructura integral del Sistema Penal Oral Acusatorio colombiano. No respondas en cuatro bloques generales ni en un resumen corto.",
       "Entrega una arquitectura estrategica amplia, similar a un mapa de litigacion: idea matriz, indagacion/investigacion, audiencias preliminares, imputacion, medida de aseguramiento, acusacion escrita, formulacion de acusacion, descubrimiento, preparatoria, juicio oral, practica probatoria, alegatos, sentido del fallo, articulo 447, sentencia, recursos y casacion.",
       "Desarrolla cada fase con contenido suficiente, en forma de relato juridico estrategico: explica que ocurre, por que importa, que debe controlar la defensa, que riesgo suele aparecer y como se sostiene oralmente.",
-      "En cada fase importante usa subtitulos y desarrolla: juez competente, finalidad, normas clave de Ley 906, punto de control, ataque defensivo y formula oral breve.",
+      "En cada fase importante usa subtitulos y desarrolla: juez competente, objeto de la audiencia o fase, normas clave de Ley 906, punto de control, ataque defensivo y formula oral breve. No uses el rotulo Finalidad; usa Objeto y desarrollalo con contexto.",
       "No inventes articulos. Usa esta guia normativa minima: audiencias preliminares arts. 153 y 154; imputacion arts. 286 a 289 y 292; captura arts. 297 a 302; medida de aseguramiento arts. 306 a 317; acusacion arts. 336 a 343; descubrimiento arts. 344 a 347; preparatoria arts. 355 a 365; juicio oral arts. 366 a 454, en especial 371 a 374, 383 a 404, 437 a 441, 443, 446, 447 y 448; recursos arts. 176 y ss.; casacion arts. 180 a 184.",
+      "En audiencias preliminares explica que existen diferentes tipos de audiencias preliminares. Si una guia oficial o interna de audiencias preliminares aparece en biblioteca o fuentes verificadas, mencionala y enlazala; si no existe enlace verificado, no inventes el vinculo y usa como soporte normativo la Ley 906 de 2004.",
+      "Dentro de audiencias preliminares desarrolla las audiencias de impulso del proceso en vinetas: legalizacion de captura, formulacion de imputacion e imposicion de medida de aseguramiento. Para cada una explica objeto, norma base y control defensivo.",
+      "Legalizacion de captura: explica que su objeto es evaluar si las condiciones de captura cumplen requisitos constitucionales y legales, incluyendo flagrancia u orden judicial, derechos del capturado y articulos pertinentes de Ley 906.",
+      "Formulacion de imputacion: explica que su objeto es que la Fiscalia comunique al procesado los hechos juridicamente relevantes y cargos provisionales, permitiendo comprension y defensa.",
+      "Imposicion de medida de aseguramiento: explica que su objeto es decidir si procede una medida provisional mientras avanza el proceso, bajo inferencia razonable, necesidad, proporcionalidad y articulos 306, 308 y siguientes de Ley 906.",
       "Primero indica brevemente: revise la biblioteca interna de LitigARG y luego contraste con fuentes oficiales externas. Si la biblioteca no arrojo fragmentos pertinentes, dilo con naturalidad sin extenderte.",
       "Si la biblioteca interna contiene una sentencia o providencia, tratala como posible fuente jurisprudencial, no como doctrina. Solo citela con enlace si aparece tambien en las fuentes externas verificadas; si no aparece, mencionala como providencia guardada pendiente de verificacion oficial.",
       "Usa las fuentes verificadas entregadas: biblioteca interna cuando haya fragmentos, Ley 906 y sentencias estructurales disponibles. Cada sentencia mencionada debe llevar enlace directo junto al nombre. No agregues providencias que no esten en fuentes.",
@@ -108,6 +113,26 @@ function extractLibraryLegalReferences(libraryContext = "") {
   return [...new Set([...references, ...sentenceTitles].map(item => item.replace(/\s+/g, " ").trim()).filter(Boolean))]
     .slice(0, 12)
     .join("\n");
+}
+
+function buildLibrarySearchQuery(message = "") {
+  const normalized = String(message || "")
+    .normalize("NFD")
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .toLowerCase();
+
+  if (/(sistema penal oral acusatorio|sistema acusatorio|ley 906|audiencias preliminares|acusacion|preparatoria|juicio oral)/.test(normalized)) {
+    return [
+      message,
+      "Sistema Penal Oral Acusatorio Ley 906 estructura del proceso penal colombiano",
+      "audiencias preliminares control de garantias legalizacion de captura formulacion de imputacion medida de aseguramiento",
+      "guia audiencias preliminares juez de control de garantias Consejo Superior de la Judicatura",
+      "acusacion descubrimiento probatorio audiencia preparatoria juicio oral alegatos sentido del fallo sentencia recursos casacion",
+      "Wilson Gomez guia practica abogado defensor control de garantias medida de aseguramiento"
+    ].join("\n");
+  }
+
+  return message;
 }
 
 async function getUserName(userId) {
@@ -188,7 +213,12 @@ async function getOfficialSources(text) {
 
 async function getLibraryContext(text) {
   try {
-    const chunks = await findRelevantDocuments(text);
+    const normalized = String(text || "")
+      .normalize("NFD")
+      .replace(/[^a-zA-Z0-9\s]/g, "")
+      .toLowerCase();
+    const isBroadSpoaQuery = /(sistema penal oral acusatorio|sistema acusatorio|ley 906|audiencias preliminares|acusacion|preparatoria|juicio oral)/.test(normalized);
+    const chunks = await findRelevantDocuments(text, isBroadSpoaQuery ? 12 : undefined);
     const formatted = formatDocumentContext(chunks);
 
     if (formatted) {
@@ -236,7 +266,7 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     }
 
     const userName = await getUserName(userId);
-    const libraryContext = await getLibraryContext(message);
+    const libraryContext = await getLibraryContext(buildLibrarySearchQuery(message));
     const libraryLegalReferences = extractLibraryLegalReferences(libraryContext);
     const officialSourceQuery = libraryLegalReferences
       ? message + "\n\nReferencias detectadas en biblioteca interna para verificar en fuentes oficiales:\n" + libraryLegalReferences
@@ -377,7 +407,7 @@ ${documentText}
       sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
     }
 
-    const libraryContext = await getLibraryContext(sourceQuery);
+    const libraryContext = await getLibraryContext(buildLibrarySearchQuery(sourceQuery));
     const libraryLegalReferences = extractLibraryLegalReferences(libraryContext);
     const officialSourceQuery = libraryLegalReferences
       ? sourceQuery + "\n\nReferencias detectadas en biblioteca interna para verificar en fuentes oficiales:\n" + libraryLegalReferences

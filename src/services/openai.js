@@ -75,8 +75,13 @@ LINEA JURISPRUDENCIAL VERIFICADA
 ESTRUCTURA DEL SISTEMA PENAL ORAL ACUSATORIO
 - Si el usuario pide una estructura amplia del sistema penal oral acusatorio o de la Ley 906 de 2004, responde como mapa integral de litigacion, no como resumen escolar ni como lista corta de cuatro etapas.
 - Esta respuesta debe cubrir, como minimo: idea matriz del sistema, indagacion/investigacion, audiencias preliminares, imputacion, medida de aseguramiento, escrito de acusacion, audiencia de formulacion de acusacion, descubrimiento probatorio, audiencia preparatoria, juicio oral, practica probatoria, alegatos, sentido del fallo, articulo 447, sentencia, recursos ordinarios y casacion.
-- En cada fase importante incluye estos campos, aunque sea de forma sintetica: juez competente, finalidad, normas clave, carga de la Fiscalia o parte solicitante, derechos o ataques de la defensa y formula oral util.
+- En cada fase importante incluye estos campos, aunque sea de forma sintetica: juez competente, objeto de la audiencia o fase, normas clave, carga de la Fiscalia o parte solicitante, derechos o ataques de la defensa y formula oral util. No uses el rotulo "Finalidad" en este mapa; usa "Objeto" y desarrollalo con suficiente contexto.
 - Agrega una tabla final de mapa del proceso con columnas: fase, juez, objetivo, ataque defensivo principal y fuente verificable cuando exista.
+- En la seccion de audiencias preliminares, explica que existen diferentes tipos de audiencias preliminares. Si una guia oficial o interna de audiencias preliminares aparece en la biblioteca o fuentes verificadas, mencionala y enlazala; si no aparece enlace verificado, no inventes el vinculo y usa como soporte normativo directo la Ley 906 de 2004 en Secretaria del Senado.
+- En audiencias preliminares distingue las audiencias de impulso o avance del proceso y desarrolla, al menos, estas: legalizacion de captura, formulacion de imputacion e imposicion de medida de aseguramiento. Para cada una explica el objeto en lenguaje claro, la norma base y el control que debe hacer la defensa.
+- Para legalizacion de captura, desarrolla que el objeto es verificar si la privacion inicial de la libertad cumplio requisitos constitucionales y legales, incluyendo captura en flagrancia u orden judicial, derechos del capturado y control de legalidad conforme a la Ley 906.
+- Para formulacion de imputacion, desarrolla que el objeto es comunicar al procesado los hechos juridicamente relevantes y la calificacion juridica provisional, con posibilidad real de comprender los cargos y preparar defensa.
+- Para medida de aseguramiento, desarrolla que el objeto es decidir si procede una medida provisional mientras avanza el proceso, con base en inferencia razonable, necesidad, proporcionalidad y fines constitucionales, atendiendo a los articulos 306, 308 y siguientes de la Ley 906.
 - La jurisprudencia estructural solo puede salir de fuentes verificadas entregadas para la respuesta. No cites sentencias recordadas si no aparecen en las fuentes; si falta una providencia, dilo como limite de verificacion.
 - Nunca enlaces una sentencia de la Corte Suprema a la pagina de la Corte Constitucional ni uses paginas principales como enlace de providencia.
 - No repitas frases como "puedes consultar la sentencia aqui" si ya pusiste el enlace junto a la sentencia. El enlace junto al nombre basta.
@@ -123,7 +128,7 @@ METODO DE RESPUESTA
 - Si pide estrategia, responde estrategicamente.
 - Si pide teoría jurídica, responde técnicamente.
 - No asumas automáticamente que toda consulta es sobre medida de aseguramiento.
-- Cuando el usuario pida una guia amplia, estructura completa, explicacion integral o desarrollo de una institucion procesal, responde con contenido elaborado y suficiente. No comprimas la respuesta en definiciones breves: desarrolla contexto, finalidad, reglas, riesgos, uso litigioso y formula practica.
+- Cuando el usuario pida una guia amplia, estructura completa, explicacion integral o desarrollo de una institucion procesal, responde con contenido elaborado y suficiente. No comprimas la respuesta en definiciones breves: desarrolla contexto, objeto, reglas, riesgos, uso litigioso y formula practica.
 - Para respuestas de litigación, usa preferiblemente esta estructura: QUÉ ENTENDÍ, PROBLEMA JURÍDICO, QUÉ BUSQUÉ, QUÉ ENCONTRÉ, CÓMO SUSTENTARLO, ARGUMENTO PARA EL JUEZ, RIESGOS O DATOS QUE FALTAN. Puedes omitir secciones si no aplican, pero no omitas el problema jurídico ni la forma de sustentarlo.
 - Para lineas jurisprudenciales, usa preferiblemente esta estructura: QUÉ ENTENDÍ, PROBLEMA JURÍDICO, CRITERIO RECTOR, LÍNEA JURISPRUDENCIAL VERIFICADA, EXTRACTOS VERIFICADOS, CÓMO USAR LA LÍNEA EN EL CASO, FUENTES VERIFICADAS Y LÍMITES DE VERIFICACIÓN.
 
@@ -153,7 +158,7 @@ async function buildSystemPrompt(options = {}) {
     ? `\n\nUsuario actual: ${userName}. Trátalo por ese nombre de forma natural cuando expliques lo que vas a hacer, lo que encontraste o cómo organizarás la respuesta. No repitas su nombre en cada párrafo; úsalo solo cuando aporte cercanía y claridad.`
     : "";
   const internalLibraryContext = libraryContext
-    ? `\n\nBIBLIOTECA INTERNA DE LITIGARG\n${libraryContext}\n\nEstos fragmentos provienen de libros, materiales o documentos internos cargados en LitigARG y fueron revisados antes de acudir a fuentes externas. Usalos como apoyo doctrinal, metodologico o tecnico. No los presentes como jurisprudencia oficial. Si los usas, menciona de forma natural el material interno o autor cuando aparezca disponible. Si el contexto indica que no hubo fragmentos pertinentes, no inventes material interno y continua con fuentes oficiales externas.`
+    ? `\n\nBIBLIOTECA INTERNA DE LITIGARG\n${libraryContext}\n\nEstos fragmentos provienen de libros, materiales o documentos internos cargados en LitigARG y fueron revisados antes de acudir a fuentes externas. Usalos como apoyo doctrinal, metodologico, tecnico o jurisprudencial interno segun su categoria. Si hay fragmentos pertinentes, no te limites a decir que los revisaste: incorpora sus ideas en el desarrollo de la respuesta, especialmente cuando el usuario pida explicaciones amplias o mapas procesales. No los presentes como jurisprudencia oficial salvo que esten verificados con enlace oficial externo. Si los usas, menciona de forma natural el material interno o autor cuando aparezca disponible. Si el contexto indica que no hubo fragmentos pertinentes, no inventes material interno y continua con fuentes oficiales externas.`
     : "";
   const activeConversationContext = conversationContext
     ? `\n\nMEMORIA DE ESTA CONVERSACION\n${conversationContext}\n\nUsa esta memoria solo para mantener continuidad dentro del chat actual: tema, hechos ya aportados, documentos mencionados, respuestas previas y decisiones de enfoque. No mezcles esta memoria con otros chats ni inventes datos que no aparezcan aqui.`
@@ -189,7 +194,7 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
         content: mensaje
       }
     ],
-    max_tokens: 3500
+    max_tokens: 5000
   });
 
   return completion.choices[0].message.content;
