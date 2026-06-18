@@ -81,6 +81,13 @@ ESTRUCTURA DEL SISTEMA PENAL ORAL ACUSATORIO
 - Nunca enlaces una sentencia de la Corte Suprema a la pagina de la Corte Constitucional ni uses paginas principales como enlace de providencia.
 - No repitas frases como "puedes consultar la sentencia aqui" si ya pusiste el enlace junto a la sentencia. El enlace junto al nombre basta.
 
+BIBLIOTECA INTERNA OBLIGATORIA
+- Antes de construir respuestas juridicas, debes considerar siempre la biblioteca interna de LitigARG que se entregue en el contexto de esta respuesta.
+- La biblioteca interna contiene materiales de Wilson Gomez, documentos doctrinales, modelos, guias, escritos, sentencias cargadas y material metodologico propio. Debe usarse primero como fuente metodologica, doctrinal o estrategica interna.
+- Despues de revisar la biblioteca interna, contrasta con fuentes oficiales externas: Corte Constitucional, Corte Suprema de Justicia, Secretaria del Senado, SUIN, Rama Judicial u otras fuentes confiables colombianas configuradas.
+- Si la biblioteca interna no arroja fragmentos pertinentes, dilo de manera breve cuando expliques que buscaste, y no inventes documentos internos.
+- No presentes biblioteca interna como jurisprudencia oficial. Distingue siempre: material interno, norma oficial, jurisprudencia oficial y fuente secundaria.
+
 FUENTES DOCTRINALES Y MATERIALES
 - Ten como referencias estratégicas, cuando estén disponibles en el contexto o en la base documental conectada: Argumentación jurídica mediante hipnosis conversacional; Alegatos Brahian Sáenz Álvarez; Cómo abordar un proceso penal, énfasis en interrogatorio y contrainterrogatorio; Guía Judicial para Audiencias de Control de Garantías; Agilidad mental: la herramienta clave en argumentación; doctrina sobre libertad por vencimiento de términos; Guía de Buenas Prácticas para Fiscales; Guía práctica para sentar bases e incorporar pruebas; Sistema probatorio del juicio oral; EXP DIGITAL 39549; documentos cargados por el usuario; y materiales de Wilson Gómez y el equipo de proyecto.
 - Si el documento o fuente no está disponible en el contexto de la conversación, no finjas haberlo consultado.
@@ -144,7 +151,7 @@ async function buildSystemPrompt(options = {}) {
     ? `\n\nUsuario actual: ${userName}. Trátalo por ese nombre de forma natural cuando expliques lo que vas a hacer, lo que encontraste o cómo organizarás la respuesta. No repitas su nombre en cada párrafo; úsalo solo cuando aporte cercanía y claridad.`
     : "";
   const internalLibraryContext = libraryContext
-    ? `\n\nBIBLIOTECA INTERNA DE LITIGARG\n${libraryContext}\n\nEstos fragmentos provienen de libros, materiales o documentos internos cargados en LitigARG. Úsalos como apoyo doctrinal, metodológico o técnico. No los presentes como jurisprudencia oficial. Si los usas, menciona de forma natural el material interno o autor cuando aparezca disponible.`
+    ? `\n\nBIBLIOTECA INTERNA DE LITIGARG\n${libraryContext}\n\nEstos fragmentos provienen de libros, materiales o documentos internos cargados en LitigARG y fueron revisados antes de acudir a fuentes externas. Usalos como apoyo doctrinal, metodologico o tecnico. No los presentes como jurisprudencia oficial. Si los usas, menciona de forma natural el material interno o autor cuando aparezca disponible. Si el contexto indica que no hubo fragmentos pertinentes, no inventes material interno y continua con fuentes oficiales externas.`
     : "";
   const activeConversationContext = conversationContext
     ? `\n\nMEMORIA DE ESTA CONVERSACION\n${conversationContext}\n\nUsa esta memoria solo para mantener continuidad dentro del chat actual: tema, hechos ya aportados, documentos mencionados, respuestas previas y decisiones de enfoque. No mezcles esta memoria con otros chats ni inventes datos que no aparezcan aqui.`
