@@ -1063,6 +1063,7 @@ body{
 }
 
 .library-form input,
+.library-form select,
 .library-form textarea{
   width:100%;
   padding:12px 14px;
@@ -1094,6 +1095,12 @@ body{
   max-height:220px;
   overflow:auto;
   margin:18px 0;
+}
+
+.workspace-modal .library-list{
+  flex:1;
+  min-height:0;
+  max-height:none;
 }
 
 .library-item{
@@ -1143,6 +1150,7 @@ body{
 }
 
 .workspace-modal input,
+.workspace-modal select,
 .workspace-modal textarea{
   background:#FFFFFF;
   color:#111111;
@@ -1189,6 +1197,46 @@ body{
   color:#FFFFFF;
   cursor:pointer;
   font-weight:700;
+}
+
+.neutral-action{
+  border:none;
+  border-radius:8px;
+  padding:8px 10px;
+  background:#262626;
+  color:#FFFFFF;
+  cursor:pointer;
+  font-weight:700;
+}
+
+.gold-action{
+  border:none;
+  border-radius:8px;
+  padding:8px 10px;
+  background:#F5C542;
+  color:#111111;
+  cursor:pointer;
+  font-weight:700;
+}
+
+.library-category-group{
+  display:grid;
+  gap:10px;
+  margin-bottom:18px;
+}
+
+.library-category-title{
+  color:#111111;
+  font-size:15px;
+  font-weight:800;
+  margin-top:4px;
+}
+
+.library-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
 
 .library-item strong{
@@ -1879,7 +1927,12 @@ body{
       >
       <input type="text" id="libraryTitle" placeholder="Titulo del material">
       <input type="text" id="libraryAuthor" placeholder="Autor (ej. W)">
-      <input type="text" id="libraryCategory" placeholder="Categoria (ej. interrogatorio, control de garantias)">
+      <select id="libraryCategory">
+        <option value="jurisprudencia">Jurisprudencia</option>
+        <option value="doctrina">Doctrina</option>
+        <option value="articulos">Articulos</option>
+        <option value="otros">Otros</option>
+      </select>
       <input type="text" id="libraryTags" placeholder="Etiquetas separadas por coma">
       <textarea id="libraryDescription" placeholder="Descripcion breve del material"></textarea>
       <button class="premium-action" onclick="uploadLibraryDocument()">Guardar en biblioteca</button>
@@ -1924,6 +1977,7 @@ let authMode = "login";
 let activeResetToken = "";
 
 let conversations = [];
+let libraryDocumentsCache = [];
 
 let currentConversation = null;
 let attachedFile = null;
@@ -2565,37 +2619,82 @@ function setLibraryStatus(message,isError = false){
 
 }
 
+function normalizeLibraryCategory(category){
+
+  const value = String(category || "otros").toLowerCase();
+
+  if(value.includes("juris")) return "jurisprudencia";
+  if(value.includes("doctr")) return "doctrina";
+  if(value.includes("art")) return "articulos";
+  return "otros";
+
+}
+
+function getLibraryCategoryLabel(category){
+
+  const labels = {
+    jurisprudencia:"Jurisprudencia",
+    doctrina:"Doctrina",
+    articulos:"Articulos",
+    otros:"Otros"
+  };
+
+  return labels[normalizeLibraryCategory(category)] || "Otros";
+
+}
+
 function renderLibraryDocuments(documents){
 
   const list = document.getElementById("libraryList");
+  libraryDocumentsCache = documents || [];
 
-  if(!documents.length){
+  if(!libraryDocumentsCache.length){
     list.innerHTML = '<div class="library-meta">Aun no hay documentos cargados en la biblioteca.</div>';
     return;
   }
 
-  list.innerHTML = documents.map((doc) => {
-    const parts = [
-      doc.author ? "Autor: " + escapeHtml(doc.author) : "",
-      doc.category ? "Categoria: " + escapeHtml(doc.category) : "",
-      doc.chunks ? doc.chunks + " fragmentos" : ""
-    ].filter(Boolean).join(" · ");
+  const categories = ["jurisprudencia", "doctrina", "articulos", "otros"];
 
-	    return `
-	      <div class="library-item">
-	        <div class="library-item-header">
-	          <div>
-	            <strong>${escapeHtml(doc.title || doc.fileName || "Documento")}</strong>
-	            <div class="library-meta">${parts || "Material interno"}</div>
-	          </div>
-	          <button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button>
-	        </div>
-	      </div>
-	    `;
+  list.innerHTML = categories.map((category) => {
+    const grouped = libraryDocumentsCache.filter((doc) => normalizeLibraryCategory(doc.category) === category);
+
+    if(!grouped.length) return "";
+
+    const items = grouped.map((doc) => {
+      const tags = Array.isArray(doc.tags) ? doc.tags.join(", ") : String(doc.tags || "");
+      const parts = [
+        doc.author ? "Autor: " + escapeHtml(doc.author) : "",
+        doc.chunks ? doc.chunks + " fragmentos" : "",
+        tags ? "Etiquetas: " + escapeHtml(tags) : ""
+      ].filter(Boolean).join(" - ");
+
+      return `
+        <div class="library-item">
+          <div class="library-item-header">
+            <div>
+              <strong>${escapeHtml(doc.title || doc.fileName || "Documento")}</strong>
+              <div class="library-meta">${parts || "Material interno"}</div>
+              ${doc.description ? '<div class="library-meta">' + escapeHtml(doc.description) + '</div>' : ''}
+            </div>
+            <div class="library-actions">
+              <button class="neutral-action" onclick="downloadLibraryDocument('${escapeAttribute(doc.id)}')">Descargar</button>
+              <button class="gold-action" onclick="editLibraryDocument('${escapeAttribute(doc.id)}')">Editar</button>
+              <button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <section class="library-category-group">
+        <div class="library-category-title">${getLibraryCategoryLabel(category)}</div>
+        ${items}
+      </section>
+    `;
   }).join("");
 
 }
-
 async function loadLibraryDocuments(){
 
   if(!token) return;
@@ -2663,7 +2762,7 @@ async function uploadLibraryDocument(){
     fileInput.value = "";
     document.getElementById("libraryTitle").value = "";
     document.getElementById("libraryAuthor").value = "";
-    document.getElementById("libraryCategory").value = "";
+    document.getElementById("libraryCategory").value = "jurisprudencia";
     document.getElementById("libraryTags").value = "";
     document.getElementById("libraryDescription").value = "";
     setLibraryStatus("Documento guardado. LitigARG ya puede consultarlo internamente.");
@@ -3757,6 +3856,101 @@ async function analyzeSelectedFile(instructionText = ""){
 
   }
 
+}
+
+async function downloadLibraryDocument(documentId){
+  if(!documentId) return;
+
+  setLibraryStatus("Preparando descarga...");
+
+  try{
+    const res = await fetch(API_URL + "/api/library/" + encodeURIComponent(documentId) + "/download", {
+      headers:{
+        Authorization:"Bearer " + token
+      }
+    });
+
+    if(!res.ok){
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "No se pudo descargar el documento.");
+    }
+
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    const fileName = match ? match[1] : "documento-biblioteca.txt";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setLibraryStatus("");
+
+  }catch(error){
+    console.error(error);
+    setLibraryStatus(error.message || "No se pudo descargar el documento.", true);
+  }
+}
+
+async function editLibraryDocument(documentId){
+  const documentData = libraryDocumentsCache.find((doc) => String(doc.id) === String(documentId));
+
+  if(!documentData){
+    setLibraryStatus("No encontre el documento para editar.", true);
+    return;
+  }
+
+  const title = prompt("Titulo del documento:", documentData.title || documentData.fileName || "");
+  if(title === null) return;
+
+  const author = prompt("Autor:", documentData.author || "");
+  if(author === null) return;
+
+  const categoryInput = prompt("Categoria: jurisprudencia, doctrina, articulos u otros", normalizeLibraryCategory(documentData.category));
+  if(categoryInput === null) return;
+  const category = normalizeLibraryCategory(categoryInput);
+
+  const currentTags = Array.isArray(documentData.tags) ? documentData.tags.join(", ") : String(documentData.tags || "");
+  const tags = prompt("Etiquetas separadas por coma:", currentTags);
+  if(tags === null) return;
+
+  const description = prompt("Descripcion breve:", documentData.description || "");
+  if(description === null) return;
+
+  setLibraryStatus("Guardando cambios del documento...");
+
+  try{
+    const res = await fetch(API_URL + "/api/library/" + encodeURIComponent(documentId), {
+      method:"PATCH",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization:"Bearer " + token
+      },
+      body:JSON.stringify({
+        title:title.trim(),
+        author:author.trim(),
+        category,
+        tags:tags.trim(),
+        description:description.trim()
+      })
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || "No se pudo editar el documento.");
+    }
+
+    setLibraryStatus("Documento actualizado.");
+    loadLibraryDocuments();
+
+  }catch(error){
+    console.error(error);
+    setLibraryStatus(error.message || "No se pudo editar el documento.", true);
+  }
 }
 
 async function deleteLibraryDocument(documentId){

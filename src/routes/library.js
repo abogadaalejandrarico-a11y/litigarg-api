@@ -5,6 +5,8 @@ import { isAdminUser } from "../services/adminAccess.js";
 import { extractDocumentText, getLibraryTextLimit } from "../services/documentText.js";
 import {
   findRelevantDocuments,
+  getLibraryDocument,
+  updateLibraryDocument,
   deleteLibraryDocument,
   formatDocumentContext,
   listLibraryDocuments,
@@ -95,6 +97,50 @@ router.post("/search", authMiddlewares, requireLibraryAdmin, async (req, res) =>
   } catch (error) {
     console.error("ERROR BUSCANDO EN BIBLIOTECA:", error);
     res.status(500).json({ error: "Error buscando en biblioteca" });
+  }
+});
+
+router.get("/:id/download", authMiddlewares, requireLibraryAdmin, async (req, res) => {
+  try {
+    const document = await getLibraryDocument(req.params.id);
+    const content = (document.chunks || [])
+      .sort((a, b) => Number(a.chunkIndex || 0) - Number(b.chunkIndex || 0))
+      .map(chunk => chunk.content)
+      .join("\n\n");
+    const safeName = String(document.title || document.fileName || "documento-biblioteca")
+      .replace(/[^a-z0-9 _.-]/gi, "_")
+      .slice(0, 90);
+
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}.txt"`);
+    res.send(content || document.textPreview || "");
+  } catch (error) {
+    console.error("ERROR DESCARGANDO DOCUMENTO DE BIBLIOTECA:", error);
+    res.status(500).json({
+      error: error.message || "Error descargando documento de biblioteca"
+    });
+  }
+});
+
+router.patch("/:id", authMiddlewares, requireLibraryAdmin, async (req, res) => {
+  try {
+    const document = await updateLibraryDocument(req.params.id, {
+      title: req.body.title,
+      author: req.body.author,
+      category: req.body.category,
+      tags: req.body.tags,
+      description: req.body.description
+    });
+
+    res.json({
+      message: "Documento actualizado en biblioteca",
+      document
+    });
+  } catch (error) {
+    console.error("ERROR EDITANDO DOCUMENTO DE BIBLIOTECA:", error);
+    res.status(500).json({
+      error: error.message || "Error editando documento de biblioteca"
+    });
   }
 });
 

@@ -376,7 +376,7 @@ export async function listLibraryDocuments() {
     return withDBClient(async client => {
       const result = await client.query(
         `
-          SELECT dl.id, dl.title, dl.file_name, dl.author, dl.category, dl.tags, dl.created_at,
+          SELECT dl.id, dl.title, dl.file_name, dl.author, dl.category, dl.description, dl.tags, dl.created_at,
                  COUNT(dc.id)::int AS chunks
           FROM document_library dl
           LEFT JOIN document_chunks dc ON dc.document_id = dl.id
@@ -391,6 +391,7 @@ export async function listLibraryDocuments() {
         fileName: row.file_name,
         author: row.author,
         category: row.category,
+        description: row.description,
         tags: row.tags || [],
         chunks: row.chunks,
         created_at: row.created_at
@@ -404,6 +405,133 @@ export async function listLibraryDocuments() {
     ...document,
     chunks: (db.documentChunks || []).filter(chunk => chunk.documentId === document.id).length
   }));
+}
+
+export async function getLibraryDocument(documentId) {
+  if (!documentId) {
+    throw new Error("Documento requerido");
+  }
+
+  if (isPostgresEnabled()) {
+    return withDBClient(async client => {
+      const documentResult = await client.query(
+        "SELECT id, title, file_name, mime_type, author, category, description, tags, text_preview, created_at, updated_at FROM document_library WHERE id = $1",
+        [documentId]
+      );
+
+      if (!documentResult.rows[0]) {
+        throw new Error("Documento no encontrado");
+      }
+
+      const chunksResult = await client.query(
+        "SELECT chunk_index, content, topics FROM document_chunks WHERE document_id = $1 ORDER BY chunk_index ASC",
+        [documentId]
+      );
+
+      const document = documentResult.rows[0];
+
+      return {
+        id: document.id,
+        title: document.title,
+        fileName: document.file_name,
+        mimeType: document.mime_type,
+        author: document.author,
+        category: document.category,
+        description: document.description,
+        tags: document.tags || [],
+        textPreview: document.text_preview,
+        created_at: document.created_at,
+        updated_at: document.updated_at,
+        chunks: chunksResult.rows.map(row => ({
+          chunkIndex: row.chunk_index,
+          content: row.content,
+          topics: row.topics || []
+        }))
+      };
+    });
+  }
+
+  const db = await readDB();
+  const document = (db.documentLibrary || []).find(item => String(item.id) === String(documentId));
+
+  if (!document) {
+    throw new Error("Documento no encontrado");
+  }
+
+  return {
+    ...document,
+    chunks: (db.documentChunks || [])
+      .filter(chunk => String(chunk.documentId) === String(documentId))
+      .sort((a, b) => Number(a.chunkIndex || 0) - Number(b.chunkIndex || 0))
+  };
+}
+
+export async function updateLibraryDocument(documentId, updates = {}) {
+  if (!documentId) {
+    throw new Error("Documento requerido");
+  }
+
+  const cleanTags = parseTags(updates.tags);
+  const title = String(updates.title || "").trim();
+
+  if (!title) {
+    throw new Error("El titulo del documento es requerido");
+  }
+
+  if (isPostgresEnabled()) {
+    return withDBClient(async client => {
+      const result = await client.query(
+        `
+          UPDATE document_library
+          SET title = $1, author = $2, category = $3, description = $4, tags = $5::jsonb, updated_at = NOW()
+          WHERE id = $6
+          RETURNING id, title, file_name, author, category, description, tags, created_at, updated_at
+        `,
+        [
+          title,
+          updates.author || null,
+          updates.category || null,
+          updates.description || null,
+          JSON.stringify(cleanTags),
+          documentId
+        ]
+      );
+
+      if (!result.rows[0]) {
+        throw new Error("Documento no encontrado");
+      }
+
+      return {
+        id: result.rows[0].id,
+        title: result.rows[0].title,
+        fileName: result.rows[0].file_name,
+        author: result.rows[0].author,
+        category: result.rows[0].category,
+        description: result.rows[0].description,
+        tags: result.rows[0].tags || [],
+        created_at: result.rows[0].created_at,
+        updated_at: result.rows[0].updated_at
+      };
+    });
+  }
+
+  const db = await readDB();
+  const document = (db.documentLibrary || []).find(item => String(item.id) === String(documentId));
+
+  if (!document) {
+    throw new Error("Documento no encontrado");
+  }
+
+  document.title = title;
+  document.author = updates.author || null;
+  document.category = updates.category || null;
+  document.description = updates.description || null;
+  document.tags = cleanTags;
+  document.updated_at = new Date().toISOString();
+
+  await writeDB(db);
+
+  return document;
 }
 
 export async function deleteLibraryDocument(documentId) {
