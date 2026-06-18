@@ -62,6 +62,38 @@ function classifyTopics(text = "") {
     .filter(rule => rule.keywords.some(keyword => normalized.includes(normalizeText(keyword))))
     .map(rule => rule.topic);
 }
+function detectDocumentKind(chunk = {}) {
+  const haystack = normalizeText([
+    chunk.title,
+    chunk.author,
+    chunk.category,
+    (chunk.tags || []).join(" "),
+    (chunk.topics || []).join(" "),
+    chunk.content
+  ].filter(Boolean).join(" "));
+
+  if (/(sentencia|providencia|auto|corte constitucional|corte suprema|sala de casacion penal|radicado|magistrad|sp\d|ap\d|c-\d|t-\d|su-\d)/.test(haystack)) {
+    return "sentencia o providencia en biblioteca interna";
+  }
+
+  if (/(ley 906|ley 599|codigo penal|codigo de procedimiento penal|secretaria del senado|suin)/.test(haystack)) {
+    return "norma o compilacion normativa en biblioteca interna";
+  }
+
+  return "material doctrinal, metodologico o estrategico interno";
+}
+
+function getVerificationNotice(kind = "") {
+  if (kind.includes("sentencia") || kind.includes("providencia")) {
+    return "Tratamiento: posible fuente jurisprudencial. Debe verificarse en repositorios oficiales y citarse con enlace oficial directo si aparece en fuentes externas verificadas.";
+  }
+
+  if (kind.includes("norma")) {
+    return "Tratamiento: posible fuente normativa. Debe contrastarse con Secretaria del Senado, SUIN u otra fuente oficial vigente.";
+  }
+
+  return "Tratamiento: apoyo interno doctrinal/metodologico. No presentarlo como jurisprudencia oficial.";
+}
 
 function parseTags(tags) {
   if (Array.isArray(tags)) return tags.map(String).map(tag => tag.trim()).filter(Boolean);
@@ -323,13 +355,19 @@ export function formatDocumentContext(chunks = []) {
   if (!chunks.length) return "";
 
   return chunks
-    .map((chunk, index) => [
-      `${index + 1}. ${chunk.title || "Documento interno"}`,
-      chunk.author ? `Autor: ${chunk.author}` : "",
-      chunk.category ? `Categoria: ${chunk.category}` : "",
-      chunk.topics?.length ? `Temas: ${chunk.topics.join(", ")}` : "",
-      `Fragmento interno: ${chunk.content}`
-    ].filter(Boolean).join("\n"))
+    .map((chunk, index) => {
+      const kind = detectDocumentKind(chunk);
+
+      return [
+        `${index + 1}. ${chunk.title || "Documento interno"}`,
+        `Tipo detectado: ${kind}`,
+        getVerificationNotice(kind),
+        chunk.author ? `Autor: ${chunk.author}` : "",
+        chunk.category ? `Categoria: ${chunk.category}` : "",
+        chunk.topics?.length ? `Temas: ${chunk.topics.join(", ")}` : "",
+        `Fragmento interno: ${chunk.content}`
+      ].filter(Boolean).join("\n");
+    })
     .join("\n\n");
 }
 

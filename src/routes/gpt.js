@@ -79,11 +79,13 @@ function buildResponseGuidance(message = "") {
 
   if (/(sistema penal oral acusatorio|sistema acusatorio|ley 906|audiencias preliminares|acusacion|preparatoria|juicio oral)/.test(normalized) && /(estructura|ensen|explica|muestra|toda)/.test(normalized)) {
     return [
-      "La usuaria pidio una estructura integral del Sistema Penal Oral Acusatorio colombiano. No respondas en cuatro bloques generales.",
+      "La usuaria pidio una estructura integral del Sistema Penal Oral Acusatorio colombiano. No respondas en cuatro bloques generales ni en un resumen corto.",
       "Entrega una arquitectura estrategica amplia, similar a un mapa de litigacion: idea matriz, indagacion/investigacion, audiencias preliminares, imputacion, medida de aseguramiento, acusacion escrita, formulacion de acusacion, descubrimiento, preparatoria, juicio oral, practica probatoria, alegatos, sentido del fallo, articulo 447, sentencia, recursos y casacion.",
+      "Desarrolla cada fase con contenido suficiente, en forma de relato juridico estrategico: explica que ocurre, por que importa, que debe controlar la defensa, que riesgo suele aparecer y como se sostiene oralmente.",
       "En cada fase importante usa subtitulos y desarrolla: juez competente, finalidad, normas clave de Ley 906, punto de control, ataque defensivo y formula oral breve.",
       "No inventes articulos. Usa esta guia normativa minima: audiencias preliminares arts. 153 y 154; imputacion arts. 286 a 289 y 292; captura arts. 297 a 302; medida de aseguramiento arts. 306 a 317; acusacion arts. 336 a 343; descubrimiento arts. 344 a 347; preparatoria arts. 355 a 365; juicio oral arts. 366 a 454, en especial 371 a 374, 383 a 404, 437 a 441, 443, 446, 447 y 448; recursos arts. 176 y ss.; casacion arts. 180 a 184.",
       "Primero indica brevemente: revise la biblioteca interna de LitigARG y luego contraste con fuentes oficiales externas. Si la biblioteca no arrojo fragmentos pertinentes, dilo con naturalidad sin extenderte.",
+      "Si la biblioteca interna contiene una sentencia o providencia, tratala como posible fuente jurisprudencial, no como doctrina. Solo citela con enlace si aparece tambien en las fuentes externas verificadas; si no aparece, mencionala como providencia guardada pendiente de verificacion oficial.",
       "Usa las fuentes verificadas entregadas: biblioteca interna cuando haya fragmentos, Ley 906 y sentencias estructurales disponibles. Cada sentencia mencionada debe llevar enlace directo junto al nombre. No agregues providencias que no esten en fuentes.",
       "Al final incluye una tabla de mapa completo del proceso y una lista de jurisprudencia verificada con su regla util."
     ].join("\n");
@@ -92,6 +94,21 @@ function buildResponseGuidance(message = "") {
   return "";
 }
 
+
+function extractLibraryLegalReferences(libraryContext = "") {
+  const text = String(libraryContext || "");
+  const references = [
+    ...(text.match(/\b(?:SP|AP|CP)[-\s]?\d{1,6}[-\s]?\d{4}\b/gi) || []),
+    ...(text.match(/\b(?:SU|T|C)[-\s]?\d{1,4}[-\s]?(?:de\s+)?\d{2,4}\b/gi) || []),
+    ...(text.match(/\brad(?:icado)?\.?\s*\d{4,8}\b/gi) || [])
+  ];
+
+  const sentenceTitles = text.match(/(?:Sentencia|Providencia|Auto)\s+(?:SU|T|C|SP|AP|CP)?[-\s]?\d{1,6}(?:[-\s](?:de\s+)?\d{2,4})?/gi) || [];
+
+  return [...new Set([...references, ...sentenceTitles].map(item => item.replace(/\s+/g, " ").trim()).filter(Boolean))]
+    .slice(0, 12)
+    .join("\n");
+}
 
 async function getUserName(userId) {
   const db = await readDB();
@@ -220,8 +237,12 @@ router.post("/chat", authMiddlewares, async (req, res) => {
 
     const userName = await getUserName(userId);
     const libraryContext = await getLibraryContext(message);
-    const sourceSearchNeeded = shouldSearchJurisprudence(message);
-    const sources = await getOfficialSources(message);
+    const libraryLegalReferences = extractLibraryLegalReferences(libraryContext);
+    const officialSourceQuery = libraryLegalReferences
+      ? message + "\n\nReferencias detectadas en biblioteca interna para verificar en fuentes oficiales:\n" + libraryLegalReferences
+      : message;
+    const sourceSearchNeeded = shouldSearchJurisprudence(officialSourceQuery);
+    const sources = await getOfficialSources(officialSourceQuery);
     const learningContext = await getLearningContext(message);
     const conversationContext = await getChatMemoryContext(userId, conversationId, {
       excludeLatestUserText: message
@@ -357,8 +378,12 @@ ${documentText}
     }
 
     const libraryContext = await getLibraryContext(sourceQuery);
-    const sourceSearchNeeded = shouldSearchJurisprudence(sourceQuery);
-    const sources = await getOfficialSources(sourceQuery);
+    const libraryLegalReferences = extractLibraryLegalReferences(libraryContext);
+    const officialSourceQuery = libraryLegalReferences
+      ? sourceQuery + "\n\nReferencias detectadas en biblioteca interna para verificar en fuentes oficiales:\n" + libraryLegalReferences
+      : sourceQuery;
+    const sourceSearchNeeded = shouldSearchJurisprudence(officialSourceQuery);
+    const sources = await getOfficialSources(officialSourceQuery);
     const learningContext = await getLearningContext(sourceQuery);
     const conversationContext = await getChatMemoryContext(userId, conversationId, {
       excludeLatestUserText: visibleUserMessage
