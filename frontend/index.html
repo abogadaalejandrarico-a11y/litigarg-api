@@ -1239,6 +1239,28 @@ body{
   justify-content:flex-end;
 }
 
+.library-viewer-title{
+  font-size:18px;
+  font-weight:800;
+  color:#111111;
+  margin:8px 0 12px;
+}
+
+.library-viewer-content{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  background:#FFFFFF;
+  border:1px solid #E5E7EB;
+  border-radius:12px;
+  padding:18px;
+  color:#111111;
+  font-family:Arial, sans-serif;
+  font-size:15px;
+  line-height:1.65;
+  white-space:pre-wrap;
+}
+
 .library-item strong{
   display:block;
   margin-bottom:4px;
@@ -1942,6 +1964,16 @@ body{
     <div class="library-list" id="libraryList"></div>
 
     <button class="modal-close" onclick="closeLibraryModal()">Cerrar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="libraryViewerModal">
+  <div class="modal workspace-modal">
+    <h3>Vista del documento</h3>
+    <p>Este es el texto que LitigARG extrajo y usa como material de consulta interna.</p>
+    <div class="library-viewer-title" id="libraryViewerTitle">Documento</div>
+    <div class="library-viewer-content" id="libraryViewerContent"></div>
+    <button class="modal-close" onclick="closeLibraryViewer()">Cerrar</button>
   </div>
 </div>
 
@@ -2677,7 +2709,7 @@ function renderLibraryDocuments(documents){
               ${doc.description ? '<div class="library-meta">' + escapeHtml(doc.description) + '</div>' : ''}
             </div>
             <div class="library-actions">
-              <button class="neutral-action" onclick="downloadLibraryDocument('${escapeAttribute(doc.id)}')">Descargar</button>
+              <button class="neutral-action" onclick="viewLibraryDocument('${escapeAttribute(doc.id)}')">Ver</button>
               <button class="gold-action" onclick="editLibraryDocument('${escapeAttribute(doc.id)}')">Editar</button>
               <button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button>
             </div>
@@ -3858,10 +3890,10 @@ async function analyzeSelectedFile(instructionText = ""){
 
 }
 
-async function downloadLibraryDocument(documentId){
+async function viewLibraryDocument(documentId){
   if(!documentId) return;
 
-  setLibraryStatus("Preparando descarga...");
+  setLibraryStatus("Abriendo documento...");
 
   try{
     const res = await fetch(API_URL + "/api/library/" + encodeURIComponent(documentId) + "/download", {
@@ -3872,27 +3904,25 @@ async function downloadLibraryDocument(documentId){
 
     if(!res.ok){
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "No se pudo descargar el documento.");
+      throw new Error(data.error || "No se pudo abrir el documento.");
     }
 
-    const blob = await res.blob();
-    const disposition = res.headers.get("Content-Disposition") || "";
-    const match = disposition.match(/filename="([^"]+)"/);
-    const fileName = match ? match[1] : "documento-biblioteca.txt";
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    const content = await res.text();
+    const documentData = libraryDocumentsCache.find((doc) => String(doc.id) === String(documentId));
+    document.getElementById("libraryViewerTitle").innerText = documentData?.title || documentData?.fileName || "Documento";
+    document.getElementById("libraryViewerContent").innerText = content || "No hay texto disponible para mostrar.";
+    document.getElementById("libraryViewerModal").style.display = "flex";
     setLibraryStatus("");
 
   }catch(error){
     console.error(error);
-    setLibraryStatus(error.message || "No se pudo descargar el documento.", true);
+    setLibraryStatus(error.message || "No se pudo abrir el documento.", true);
   }
+}
+function closeLibraryViewer(){
+
+  document.getElementById("libraryViewerModal").style.display = "none";
+
 }
 
 async function editLibraryDocument(documentId){
