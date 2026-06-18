@@ -10,7 +10,7 @@ const SENADO_GACETAS_URL = "https://www.secretariasenado.gov.co/legibus/legibus/
 const RAMA_JUDICIAL_URL = "https://www.ramajudicial.gov.co";
 const AMBITO_JURIDICO_URL = "https://www.ambitojuridico.com";
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || process.env.RENDER_EXTERNAL_URL || "https://litigarg-api.onrender.com").replace(/\/$/, "");
-const MAX_SOURCES_FOR_ANSWER = 6;
+const MAX_SOURCES_FOR_ANSWER = 8;
 const LEY_906_ART_88_URL = "https://www.secretariasenado.gov.co/senado/basedoc/ley_0906_2004a_pr002.html#88";
 const COLOMBIAN_LEGAL_REPOSITORIES = [
   "Corte Suprema de Justicia - Sala de Casacion Penal",
@@ -240,6 +240,14 @@ function buildSearchQueries(query = "") {
     searches.push("dosis personal marihuana libre desarrollo personalidad Corte Constitucional");
   }
 
+  if (/(sistema penal oral acusatorio|sistema acusatorio|ley 906|audiencias preliminares|audiencia preliminar|acusacion|preparatoria|juicio oral)/.test(normalized)) {
+    searches.push("C-591 de 2005 sistema penal oral acusatorio Ley 906");
+    searches.push("C-025 de 2009 juez control de garantias control material proporcionalidad");
+    searches.push("C-1194 de 2005 defensa sistema penal acusatorio");
+    searches.push("C-209 de 2007 victimas sistema penal acusatorio");
+    searches.push("SP3168 2017 hechos juridicamente relevantes acusacion imputacion");
+  }
+
   searches.push(
     ...COLOMBIAN_LEGAL_REPOSITORIES.map(repository => `${repository}: ${terms.slice(0, 5).join(" ") || cleanText(query)}`)
   );
@@ -255,6 +263,7 @@ function getQueryIntent(query = "") {
   return {
     asksJurisprudentialLine: /(linea jurisprudencial|linea de jurisprudencia|precedente|precedentes|desarrollo jurisprudencial)/.test(normalized),
     mentionsMinimumDose: /(dosis minima|dosis personal|marihuana|cannabis|estupefaciente|estupefacientes|sustancias psicoactivas|psicoactivas|consumo personal|porte para consumo)/.test(normalized),
+    mentionsSpoaStructure: /(sistema penal oral acusatorio|sistema acusatorio|ley 906|audiencias preliminares|audiencia preliminar|acusacion|preparatoria|juicio oral|estructura.*proceso penal|proceso penal oral)/.test(normalized),
     wantsReturnOfSeizedProperty: normalized.includes("devolucion") && /(arma|bien|bienes|incaut|ocupad|comiso)/.test(normalized),
     mentionsWeapon: /(arma|armas|fuego|pistola|revolver|salvoconducto)/.test(normalized),
     mentionsThreatOrIntimidation: /(intimidacion|amenaza|amenazas|constreñimiento|violencia)/.test(normalized),
@@ -795,6 +804,82 @@ async function searchCorteSuprema(query) {
     .slice(0, MAX_SOURCES_FOR_ANSWER);
 }
 
+function getSpoaStructuralCandidates(query = "") {
+  const intent = getQueryIntent(query);
+
+  if (!intent.mentionsSpoaStructure) {
+    return [];
+  }
+
+  return [
+    {
+      title: "Corte Constitucional, Sentencia C-591 de 2005",
+      url: CC_RELATORIA_URL + "/2005/C-591-05.htm",
+      corporation: "Corte Constitucional",
+      room: "Sala Plena",
+      year: 2005,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Sentencia estructural sobre el modelo con tendencia acusatoria introducido por la Ley 906 de 2004, garantias del procesado, derechos de las victimas y separacion de funciones."
+    },
+    {
+      title: "Corte Constitucional, Sentencia C-025 de 2009",
+      url: CC_RELATORIA_URL + "/2009/C-025-09.htm",
+      corporation: "Corte Constitucional",
+      room: "Sala Plena",
+      year: 2009,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Decision sobre juez de control de garantias, control judicial de afectaciones a derechos fundamentales, legalidad y proporcionalidad."
+    },
+    {
+      title: "Corte Constitucional, Sentencia C-1194 de 2005",
+      url: CC_RELATORIA_URL + "/2005/C-1194-05.htm",
+      corporation: "Corte Constitucional",
+      room: "Sala Plena",
+      year: 2005,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Decision relevante sobre derecho de defensa dentro del sistema penal acusatorio y posibilidad de acudir ante el juez de control de garantias."
+    },
+    {
+      title: "Corte Constitucional, Sentencia C-209 de 2007",
+      url: CC_RELATORIA_URL + "/2007/C-209-07.htm",
+      corporation: "Corte Constitucional",
+      room: "Sala Plena",
+      year: 2007,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Decision estructural sobre la intervencion de las victimas en el sistema penal acusatorio."
+    },
+    {
+      title: "Corte Suprema de Justicia, Sala Penal, SP3168-2017, radicado 44599",
+      url: "https://cortesuprema.gov.co/corte/wp-content/uploads/2017/03/SP3168-201744599.pdf",
+      corporation: "Corte Suprema de Justicia",
+      room: "Sala de Casacion Penal",
+      year: 2017,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Decision estructural sobre hechos juridicamente relevantes, imputacion, acusacion y diferencia entre hechos, inferencias y medios de prueba."
+    }
+  ];
+}
+
 function getConstitutionalLineCandidates(query = "") {
   const intent = getQueryIntent(query);
 
@@ -849,8 +934,9 @@ async function searchCorteConstitucional(query) {
   const references = [...new Set(cleanText(query).match(/\b(?:SU|T|C)[-\s]?\d{1,4}[-\s]?\d{2,4}\b/gi) || [])];
   const sources = [];
   const lineCandidates = getConstitutionalLineCandidates(query);
+  const spoaCandidates = getSpoaStructuralCandidates(query);
 
-  sources.push(...lineCandidates);
+  sources.push(...lineCandidates, ...spoaCandidates);
 
   for (const reference of references.slice(0, 4)) {
     const candidates = getConstitutionalCandidates(reference);
@@ -1136,6 +1222,15 @@ function buildAliasPattern(alias) {
 export function addInlineSourceLinks(answer = "", sources = []) {
   let linkedAnswer = String(answer || "");
   const linkedAliases = new Set();
+  const allowedSourceUrls = new Set(
+    (Array.isArray(sources) ? sources : [])
+      .flatMap(source => [source?.url, source?.officialViewerUrl])
+      .filter(Boolean)
+  );
+
+  linkedAnswer = linkedAnswer.replace(/\s*\[Fuente oficial\]\((https?:\/\/[^)\s]+)\)/gi, (fullMatch, url) => {
+    return allowedSourceUrls.has(url) ? fullMatch : "";
+  });
 
   (Array.isArray(sources) ? sources : [])
     .filter(source => source?.url && !["repository_search", "secondary_reference"].includes(source.sourceType))

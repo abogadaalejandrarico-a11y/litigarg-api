@@ -103,7 +103,7 @@ function scoreResponseSource(source = {}, query = "") {
   if (source.verified) score += 5;
   if (source.extractVerified || source.sourceType === "law") score += 4;
   if (source.year && Number(source.year) >= 2020) score += 1;
-  if (source.sourceType === "jurisprudence" && source.readStatus !== "read") score -= 20;
+  if (source.sourceType === "jurisprudence" && source.readStatus !== "read" && !source.citationVerified) score -= 20;
   if (["repository_search", "secondary_reference"].includes(source.sourceType)) score -= 30;
 
   for (const term of terms.slice(0, 10)) {
