@@ -71,6 +71,26 @@ function limitMessage(kind, planName) {
   return `Se acabo tu limite diario de ${feature} del plan ${planName}. Podras volver a usarlo cuando se recargue tu cupo diario o cambiar a un plan superior para ampliar tus limites.`;
 }
 
+function buildResponseGuidance(message = "") {
+  const normalized = String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (/(sistema penal oral acusatorio|sistema acusatorio|ley 906|audiencias preliminares|acusacion|preparatoria|juicio oral)/.test(normalized) && /(estructura|ensen|explica|muestra|toda)/.test(normalized)) {
+    return [
+      "La usuaria pidio una estructura integral del Sistema Penal Oral Acusatorio colombiano. No respondas en cuatro bloques generales.",
+      "Entrega una arquitectura estrategica amplia, similar a un mapa de litigacion: idea matriz, indagacion/investigacion, audiencias preliminares, imputacion, medida de aseguramiento, acusacion escrita, formulacion de acusacion, descubrimiento, preparatoria, juicio oral, practica probatoria, alegatos, sentido del fallo, articulo 447, sentencia, recursos y casacion.",
+      "En cada fase importante usa subtitulos y desarrolla: juez competente, finalidad, normas clave de Ley 906, punto de control, ataque defensivo y formula oral breve.",
+      "Usa las fuentes verificadas entregadas: Ley 906 y las sentencias estructurales disponibles. Cada sentencia mencionada debe llevar enlace directo junto al nombre. No agregues providencias que no esten en fuentes.",
+      "Al final incluye una tabla de mapa completo del proceso y una lista de jurisprudencia verificada con su regla util."
+    ].join("\n");
+  }
+
+  return "";
+}
+
+
 async function getUserName(userId) {
   const db = await readDB();
   const user = (db.users || []).find(item => Number(item.id) === Number(userId));
@@ -200,6 +220,7 @@ router.post("/chat", authMiddlewares, async (req, res) => {
       conversationContext,
       libraryContext,
       learningContext,
+      responseGuidance: buildResponseGuidance(message),
       sourcesContext: sources.length
         ? formatSourcesForPrompt(sources)
         : sourceSearchNeeded

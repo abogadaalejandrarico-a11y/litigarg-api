@@ -73,11 +73,13 @@ LINEA JURISPRUDENCIAL VERIFICADA
 - Los extractos de la linea solo pueden aparecer si fueron marcados como verificados en el texto leido. Si no hay extracto verificado, resume la regla con cautela y sin comillas.
 
 ESTRUCTURA DEL SISTEMA PENAL ORAL ACUSATORIO
-- Si el usuario pide una estructura amplia del sistema penal oral acusatorio o de la Ley 906 de 2004, responde como mapa integral de litigacion, no como resumen escolar.
-- Organiza por fases: indagacion/investigacion, audiencias preliminares, imputacion, medida de aseguramiento, escrito y formulacion de acusacion, descubrimiento, audiencia preparatoria, juicio oral, alegatos, sentido del fallo, articulo 447, sentencia, recursos y casacion cuando aplique.
-- En cada fase, incluye: juez competente, finalidad, normas clave, carga de la Fiscalia, derechos de la defensa, errores atacables y una formula oral breve cuando sea util.
+- Si el usuario pide una estructura amplia del sistema penal oral acusatorio o de la Ley 906 de 2004, responde como mapa integral de litigacion, no como resumen escolar ni como lista corta de cuatro etapas.
+- Esta respuesta debe cubrir, como minimo: idea matriz del sistema, indagacion/investigacion, audiencias preliminares, imputacion, medida de aseguramiento, escrito de acusacion, audiencia de formulacion de acusacion, descubrimiento probatorio, audiencia preparatoria, juicio oral, practica probatoria, alegatos, sentido del fallo, articulo 447, sentencia, recursos ordinarios y casacion.
+- En cada fase importante incluye estos campos, aunque sea de forma sintetica: juez competente, finalidad, normas clave, carga de la Fiscalia o parte solicitante, derechos o ataques de la defensa y formula oral util.
+- Agrega una tabla final de mapa del proceso con columnas: fase, juez, objetivo, ataque defensivo principal y fuente verificable cuando exista.
 - La jurisprudencia estructural solo puede salir de fuentes verificadas entregadas para la respuesta. No cites sentencias recordadas si no aparecen en las fuentes; si falta una providencia, dilo como limite de verificacion.
 - Nunca enlaces una sentencia de la Corte Suprema a la pagina de la Corte Constitucional ni uses paginas principales como enlace de providencia.
+- No repitas frases como "puedes consultar la sentencia aqui" si ya pusiste el enlace junto a la sentencia. El enlace junto al nombre basta.
 
 FUENTES DOCTRINALES Y MATERIALES
 - Ten como referencias estratégicas, cuando estén disponibles en el contexto o en la base documental conectada: Argumentación jurídica mediante hipnosis conversacional; Alegatos Brahian Sáenz Álvarez; Cómo abordar un proceso penal, énfasis en interrogatorio y contrainterrogatorio; Guía Judicial para Audiencias de Control de Garantías; Agilidad mental: la herramienta clave en argumentación; doctrina sobre libertad por vencimiento de términos; Guía de Buenas Prácticas para Fiscales; Guía práctica para sentar bases e incorporar pruebas; Sistema probatorio del juicio oral; EXP DIGITAL 39549; documentos cargados por el usuario; y materiales de Wilson Gómez y el equipo de proyecto.
@@ -150,6 +152,9 @@ async function buildSystemPrompt(options = {}) {
   const activeLearningContext = learningContext
     ? `\n\nAPRENDIZAJES Y CORRECCIONES INTERNAS DE LITIGARG\n${learningContext}\n\nEstas pautas provienen de valoraciones, correcciones o instrucciones guardadas, especialmente de la administradora. Usalas para mejorar la comprension del problema juridico, evitar respuestas genericas y ajustar la precision. No las cites al usuario como fuente externa; aplicalas como criterio interno de razonamiento y estilo. Si una pauta aprendida entra en tension con una fuente oficial, prevalece la fuente oficial y debes explicar la cautela.`
     : "";
+  const responseGuidance = (options.responseGuidance || "").trim()
+    ? `\n\nGUIA ESPECIFICA PARA ESTA RESPUESTA\n${options.responseGuidance.trim()}`
+    : "";
   const verifiedSourcesContext = sourcesContext
     ? `\n\nRESULTADO DE BUSQUEDA JURIDICA COLOMBIANA PARA ESTA RESPUESTA\n${sourcesContext}\n\nEvalua primero si estas fuentes responden exactamente al problema juridico del usuario. Usa solo derecho colombiano. Si el usuario pidio una linea jurisprudencial, organiza las decisiones en orden cronologico y no incluyas ninguna providencia que no aparezca en esta lista de fuentes verificadas. En la respuesta debes indicar brevemente que buscaste y que encontraste. Usa solo las fuentes que sean realmente pertinentes y no cites mas fuentes de las que uses en la respuesta. Distingue con rigor: una fuente de tipo "law" es norma colombiana; una fuente de tipo "jurisprudence" es providencia o sentencia; una fuente de tipo "repository_search" es solo una ruta de verificacion y no debe citarse como sentencia ni como soporte definitivo; una fuente de tipo "secondary_reference", como Ambito Juridico, solo sirve como orientacion o pista, nunca como autoridad judicial principal. Puedes citar el nombre de una sentencia y su enlace si la fuente dice "Cita con enlace oficial directo verificado: si". Solo puedes transcribir o atribuir un extracto si la fuente dice "Extracto verificado en el texto leido: si". Si no hay extracto verificado, no inventes ni reconstruyas uno; resume la regla con cautela y sin comillas. Cuando menciones una sentencia, providencia, norma o fuente directa de esta lista, el vinculo debe quedar en la misma oracion o justo al lado del nombre de la sentencia o norma, no solo al final de la respuesta. Ejemplo: "CSJ SP1477-2018 [Fuente oficial](https://...)" o "articulo 88 de la Ley 906 de 2004 [Fuente oficial](https://...)". Tambien puede repetirse en el apartado de fuentes. Si la fuente tiene extracto util verificado, incluyelo dentro del cuerpo de la respuesta en un parrafo propio y con lenguaje practico, por ejemplo: "Aqui te presento un extracto de la sentencia que puedes usar para sustentar ante el juez: ...". Luego explica como usar ese extracto en la solicitud o intervencion oral. No lo escondas solo en las fuentes. No copies bloques excesivamente largos: selecciona o sintetiza el fragmento que sirva para sostener el argumento. No cites como verificada una fuente que no aparezca aqui o que el usuario no haya aportado. Si las fuentes disponibles no tratan directamente el punto pedido, dilo expresamente y explica que se requiere una busqueda mas especifica en vez de presentar providencias apenas parecidas como si fueran suficientes.`
     : "";
@@ -157,7 +162,7 @@ async function buildSystemPrompt(options = {}) {
   const aiConfig = await getAiConfig();
   const activeRules = (aiConfig.customRules || MASTER_PROMPT).trim();
 
-  return `${activeRules}${userContext}${activeConversationContext}${internalLibraryContext}${activeLearningContext}${verifiedSourcesContext}`;
+  return `${activeRules}${userContext}${activeConversationContext}${internalLibraryContext}${activeLearningContext}${responseGuidance}${verifiedSourcesContext}`;
 }
 
 export async function generarRespuestaLegal(mensaje, options = {}) {
