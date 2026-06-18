@@ -103,31 +103,121 @@ function parseTags(tags) {
     .filter(Boolean);
 }
 
-function chunkText(text = "") {
-  const chunks = [];
-  let index = 0;
-  let start = 0;
+function splitLongBlock(block = "") {
+  const pieces = [];
+  const sentences = String(block)
+    .split(/(?<=[.!?;:])\s+/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
 
-  while (start < text.length) {
-    const end = Math.min(start + CHUNK_SIZE, text.length);
-    const content = text.slice(start, end).trim();
+  let current = "";
 
-    if (content) {
-      chunks.push({
-        index,
-        content,
-        topics: classifyTopics(content)
-      });
-      index += 1;
+  for (const sentence of sentences.length ? sentences : [block]) {
+    if ((current + " " + sentence).trim().length <= CHUNK_SIZE) {
+      current = (current + " " + sentence).trim();
+      continue;
     }
 
-    if (end >= text.length) break;
-    start = Math.max(0, end - CHUNK_OVERLAP);
+    if (current) {
+      pieces.push(current);
+      current = "";
+    }
+
+    if (sentence.length <= CHUNK_SIZE) {
+      current = sentence;
+      continue;
+    }
+
+    let remaining = sentence;
+    while (remaining.length > CHUNK_SIZE) {
+      const window = remaining.slice(0, CHUNK_SIZE);
+      const cutAt = Math.max(window.lastIndexOf(" "), Math.floor(CHUNK_SIZE * 0.75));
+      pieces.push(remaining.slice(0, cutAt).trim());
+      remaining = remaining.slice(cutAt).trim();
+    }
+    current = remaining;
   }
 
+  if (current) pieces.push(current);
+  return pieces;
+}
+
+function chunkText(text = "") {
+  const normalized = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const blocks = normalized
+    .split(/\n\s*\n/)
+    .map(block => block.replace(/\n+/g, " ").replace(/\s{2,}/g, " ").trim())
+    .filter(Boolean);
+
+  const chunks = [];
+  let current = "";
+
+  function pushCurrent() {
+    const content = current.trim();
+    if (!content) return;
+
+    chunks.push({
+      index: chunks.length,
+      content,
+      topics: classifyTopics(content)
+    });
+    current = "";
+  }
+
+  for (const block of blocks) {
+    const pieces = block.length > CHUNK_SIZE ? splitLongBlock(block) : [block];
+
+    for (const piece of pieces) {
+      if (!current) {
+        current = piece;
+        continue;
+      }
+
+      if ((current + "\n\n" + piece).length <= CHUNK_SIZE) {
+        current += "\n\n" + piece;
+      } else {
+        pushCurrent();
+        current = piece;
+      }
+    }
+  }
+
+  pushCurrent();
   return chunks;
 }
 
+function mergeChunkContent(chunks = []) {
+  const ordered = [...chunks].sort((a, b) => Number(a.chunkIndex ?? a.chunk_index ?? 0) - Number(b.chunkIndex ?? b.chunk_index ?? 0));
+  let merged = "";
+
+  for (const chunk of ordered) {
+    const content = String(chunk.content || "").trim();
+    if (!content) continue;
+
+    if (!merged) {
+      merged = content;
+      continue;
+    }
+
+    const maxOverlap = Math.min(CHUNK_OVERLAP, merged.length, content.length);
+    let overlap = 0;
+
+    for (let size = maxOverlap; size >= 40; size -= 1) {
+      if (merged.slice(-size) === content.slice(0, size)) {
+        overlap = size;
+        break;
+      }
+    }
+
+    merged += "\n\n" + content.slice(overlap).trim();
+  }
+
+  return merged.trim();
+}
 function scoreChunk(chunk, query = "") {
   const terms = extractTerms(query);
   const haystack = normalizeText([
@@ -532,6 +622,65 @@ export async function updateLibraryDocument(documentId, updates = {}) {
   await writeDB(db);
 
   return document;
+}
+
+export async function rebuildLibraryDocumentChunks(documentId) {
+  const document = await getLibraryDocument(documentId);
+  const mergedText = mergeChunkContent(document.chunks || []);
+  const chunks = chunkText(mergedText || document.textPreview || "");
+
+  if (!chunks.length) {
+    throw new Error("No pude reconstruir contenido suficiente para reorganizar este documento.");
+  }
+
+  if (isPostgresEnabled()) {
+    return withDBClient(async client => {
+      await client.query("DELETE FROM document_chunks WHERE document_id = $1", [documentId]);
+
+      for (const chunk of chunks) {
+        await client.query(
+          `
+            INSERT INTO document_chunks (document_id, chunk_index, content, topics, created_at)
+            VALUES ($1, $2, $3, $4::jsonb, NOW())
+          `,
+          [documentId, chunk.index, chunk.content, JSON.stringify(chunk.topics)]
+        );
+      }
+
+      await client.query("UPDATE document_library SET updated_at = NOW() WHERE id = $1", [documentId]);
+
+      return {
+        id: document.id,
+        title: document.title,
+        chunks: chunks.length
+      };
+    });
+  }
+
+  const db = await readDB();
+  db.documentChunks = (db.documentChunks || []).filter(chunk => String(chunk.documentId) !== String(documentId));
+
+  chunks.forEach(chunk => {
+    db.documentChunks.push({
+      id: `chunk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+      documentId,
+      chunkIndex: chunk.index,
+      content: chunk.content,
+      topics: chunk.topics,
+      created_at: new Date().toISOString()
+    });
+  });
+
+  const storedDocument = (db.documentLibrary || []).find(item => String(item.id) === String(documentId));
+  if (storedDocument) storedDocument.updated_at = new Date().toISOString();
+
+  await writeDB(db);
+
+  return {
+    id: document.id,
+    title: document.title,
+    chunks: chunks.length
+  };
 }
 
 export async function deleteLibraryDocument(documentId) {

@@ -2711,6 +2711,7 @@ function renderLibraryDocuments(documents){
             <div class="library-actions">
               <button class="neutral-action" onclick="viewLibraryDocument('${escapeAttribute(doc.id)}')">Ver</button>
               <button class="gold-action" onclick="editLibraryDocument('${escapeAttribute(doc.id)}')">Editar</button>
+              <button class="neutral-action" onclick="rebuildLibraryDocument('${escapeAttribute(doc.id)}')">Reorganizar</button>
               <button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button>
             </div>
           </div>
@@ -3980,6 +3981,38 @@ async function editLibraryDocument(documentId){
   }catch(error){
     console.error(error);
     setLibraryStatus(error.message || "No se pudo editar el documento.", true);
+  }
+}
+
+async function rebuildLibraryDocument(documentId){
+  if(!documentId) return;
+
+  if(!confirm("Esto reorganizara los fragmentos del documento para conservar mejor los parrafos completos. ?Deseas continuar?")){
+    return;
+  }
+
+  setLibraryStatus("Reorganizando fragmentos del documento...");
+
+  try{
+    const res = await fetch(API_URL + "/api/library/" + encodeURIComponent(documentId) + "/rebuild", {
+      method:"POST",
+      headers:{
+        Authorization:"Bearer " + token
+      }
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      throw new Error(data.error || "No se pudo reorganizar el documento.");
+    }
+
+    setLibraryStatus("Fragmentos reorganizados. Ahora las ideas quedan mejor agrupadas por parrafos.");
+    loadLibraryDocuments();
+
+  }catch(error){
+    console.error(error);
+    setLibraryStatus(error.message || "No se pudo reorganizar el documento.", true);
   }
 }
 

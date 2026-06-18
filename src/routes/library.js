@@ -7,6 +7,7 @@ import {
   findRelevantDocuments,
   getLibraryDocument,
   updateLibraryDocument,
+  rebuildLibraryDocumentChunks,
   deleteLibraryDocument,
   formatDocumentContext,
   listLibraryDocuments,
@@ -140,6 +141,22 @@ router.patch("/:id", authMiddlewares, requireLibraryAdmin, async (req, res) => {
     console.error("ERROR EDITANDO DOCUMENTO DE BIBLIOTECA:", error);
     res.status(500).json({
       error: error.message || "Error editando documento de biblioteca"
+    });
+  }
+});
+
+router.post("/:id/rebuild", authMiddlewares, requireLibraryAdmin, async (req, res) => {
+  try {
+    const document = await rebuildLibraryDocumentChunks(req.params.id);
+
+    res.json({
+      message: "Fragmentos reorganizados por parrafos",
+      document
+    });
+  } catch (error) {
+    console.error("ERROR REORGANIZANDO DOCUMENTO DE BIBLIOTECA:", error);
+    res.status(500).json({
+      error: error.message || "Error reorganizando documento de biblioteca"
     });
   }
 });
