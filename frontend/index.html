@@ -125,6 +125,101 @@ body{
   display:none;
   height:100vh;
 }
+.access-gate{
+  display:none;
+  min-height:100vh;
+  background:#0A0A0A;
+  color:#FFFFFF;
+  align-items:center;
+  justify-content:center;
+  padding:28px;
+}
+
+.access-panel{
+  width:min(520px, 100%);
+  background:#111111;
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:22px;
+  padding:34px;
+  box-shadow:0 24px 70px rgba(0,0,0,0.55);
+  text-align:center;
+}
+
+.access-panel img{
+  width:min(280px, 82%);
+  margin:0 auto 22px;
+  display:block;
+}
+
+.access-panel h1{
+  font-size:26px;
+  margin-bottom:10px;
+}
+
+.access-panel p{
+  color:#AEB6C2;
+  line-height:1.55;
+  margin-bottom:24px;
+}
+
+.access-status{
+  margin:0 auto 18px;
+  padding:10px 14px;
+  width:max-content;
+  max-width:100%;
+  border-radius:999px;
+  background:#1C1C1C;
+  color:#D1D5DB;
+  font-size:13px;
+}
+
+.access-primary{
+  width:100%;
+  padding:16px;
+  border:none;
+  border-radius:14px;
+  background:#B30000;
+  color:#FFFFFF;
+  font-weight:800;
+  cursor:pointer;
+  font-size:15px;
+}
+
+.access-primary:hover{
+  background:#D00000;
+}
+
+.access-secondary{
+  width:100%;
+  margin-top:10px;
+  padding:13px;
+  border:none;
+  border-radius:14px;
+  background:#F5C542;
+  color:#111111;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.access-footnote{
+  margin-top:26px;
+  padding-top:16px;
+  border-top:1px solid rgba(255,255,255,0.06);
+  text-align:center;
+}
+
+.access-footnote button{
+  background:transparent;
+  border:none;
+  color:#555D68;
+  font-size:11px;
+  cursor:pointer;
+  text-decoration:none;
+}
+
+.access-footnote button:hover{
+  color:#8B95A1;
+}
 
 /* SIDEBAR */
 
@@ -1667,6 +1762,22 @@ body{
 
 </div>
 
+<!-- ACCESS GATE -->
+
+<div class="access-gate" id="accessGate">
+  <div class="access-panel">
+    <img src="logoblanco.png" alt="LitigARG">
+    <h1>Acceso LitigARG</h1>
+    <p>Tu cuenta fue verificada. Desde aqui puedes continuar al asistente activo de LitigARG segun el estado de tu plan.</p>
+    <div class="access-status" id="gateAccessStatus">Consultando acceso...</div>
+    <button class="access-primary" id="gateGptButton" onclick="handleGatePrimaryAction()">Verificando...</button>
+    <button class="access-secondary" id="gatePlansButton" onclick="openPremiumModal()">Ver planes disponibles</button>
+    <div class="access-footnote">
+      <button onclick="enterIndependentApp()">Condiciones de uso y soporte de la herramienta</button>
+    </div>
+  </div>
+</div>
+
 <!-- APP -->
 
 <div class="app" id="app">
@@ -2043,6 +2154,7 @@ let currentConversation = null;
 let attachedFile = null;
 let attachedFileReady = false;
 let attachedFileLoading = false;
+let gateHasGptAccess = false;
 
 let profileState = {
   email:"",
@@ -2427,12 +2539,28 @@ function getCurrentUser(){
 
 }
 
-function showApp(){
+function showAccessGate(){
 
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("app").style.display = "none";
+  document.getElementById("accessGate").style.display = "flex";
+  loadProfile();
+
+}
+
+function enterIndependentApp(){
+
+  document.getElementById("accessGate").style.display = "none";
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "flex";
   loadProfile();
   loadChatHistory();
+
+}
+
+function showApp(){
+
+  showAccessGate();
 
 }
 
@@ -2949,6 +3077,41 @@ function closeMobileSidebar(){
 }
 
 
+
+function updateGateAccess(canAccess, planName = ""){
+
+  gateHasGptAccess = !!canAccess;
+  const status = document.getElementById("gateAccessStatus");
+  const button = document.getElementById("gateGptButton");
+  const plansButton = document.getElementById("gatePlansButton");
+
+  if(status){
+    status.innerText = canAccess
+      ? "Acceso activo" + (planName ? " - " + planName : "")
+      : "Tu cuenta aun no tiene acceso activo";
+  }
+
+  if(button){
+    button.innerText = canAccess ? "Ingresar a LitigARG GPT" : "Activar acceso";
+  }
+
+  if(plansButton){
+    plansButton.style.display = canAccess ? "none" : "block";
+  }
+
+}
+
+function handleGatePrimaryAction(){
+
+  if(gateHasGptAccess){
+    openActiveGpt();
+    return;
+  }
+
+  openPremiumModal();
+
+}
+
 function updateGptAccessButton(canAccess){
 
   const button = document.getElementById("gptAccessButton");
@@ -2957,6 +3120,7 @@ function updateGptAccessButton(canAccess){
   button.style.display = canAccess ? "block" : "none";
   button.disabled = false;
   button.innerText = "Ingresar al GPT";
+  updateGateAccess(canAccess, profileState.plan);
 
 }
 
@@ -3285,6 +3449,7 @@ function logout(){
   closeMobileSidebar();
 
   document.getElementById("app").style.display = "none";
+  document.getElementById("accessGate").style.display = "none";
   document.getElementById("loginScreen").style.display = "flex";
   document.getElementById("username").value = "";
   document.getElementById("email").value = "";
@@ -3727,7 +3892,7 @@ async function login(){
       token = data.token;
       localStorage.setItem(TOKEN_STORAGE_KEY, token);
 
-      showApp();
+      showAccessGate();
 
     }else{
 
