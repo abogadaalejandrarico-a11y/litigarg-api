@@ -234,6 +234,28 @@ body{
   background:#333333;
 }
 
+.gpt-access-button{
+  display:none;
+  width:calc(100% - 40px);
+  margin:8px 20px;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  background:#B30000;
+  color:#FFFFFF;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.gpt-access-button:hover{
+  background:#D00000;
+}
+
+.gpt-access-button:disabled{
+  opacity:0.65;
+  cursor:not-allowed;
+}
+
 .account-box{
   position:relative;
 }
@@ -1678,6 +1700,9 @@ body{
       <button class="admin-sidebar-button" id="libraryMenuButton" onclick="openLibraryModal()">
         Biblioteca
       </button>
+      <button class="gpt-access-button" id="gptAccessButton" onclick="openActiveGpt()">
+        Ingresar al GPT
+      </button>
       <button class="premium-button" id="premiumButton" onclick="openPremiumModal()">
         Ver planes
       </button>
@@ -1988,6 +2013,9 @@ body{
 
       <label class="library-meta">Reglas adicionales de la administradora</label>
       <textarea id="aiCustomRules" placeholder="Agrega aquí nuevas reglas, criterios de estilo, límites o instrucciones estratégicas para LitigARG." style="min-height:180px"></textarea>
+
+      <label class="library-meta">Enlace GPT activo del mes</label>
+      <input type="url" id="activeGptUrl" placeholder="Pega aquí el enlace privado del GPT activo">
 
       <button class="premium-action" onclick="saveAiConfig()">Guardar configuración</button>
       <div class="library-status" id="aiConfigStatus"></div>
@@ -2573,6 +2601,10 @@ async function loadAiConfig(){
 
 	    document.getElementById("aiBaseRules").value = "";
 	    document.getElementById("aiCustomRules").value = data.activeRules || data.customRules || data.baseRules || "";
+    const activeGptInput = document.getElementById("activeGptUrl");
+    if(activeGptInput){
+      activeGptInput.value = data.activeGptUrl || "";
+    }
     setAiConfigStatus("");
 
   }catch(error){
@@ -2594,7 +2626,8 @@ async function saveAiConfig(){
         Authorization:"Bearer " + token
       },
       body:JSON.stringify({
-	        activeRules:document.getElementById("aiCustomRules").value
+        activeRules:document.getElementById("aiCustomRules").value,
+        activeGptUrl:document.getElementById("activeGptUrl")?.value || ""
       })
     });
 
@@ -2605,7 +2638,11 @@ async function saveAiConfig(){
     }
 
     document.getElementById("aiCustomRules").value = data.customRules || "";
-    setAiConfigStatus("Configuración guardada. Las nuevas reglas ya se aplican a LitigARG.");
+    const activeGptInput = document.getElementById("activeGptUrl");
+    if(activeGptInput){
+      activeGptInput.value = data.activeGptUrl || activeGptInput.value || "";
+    }
+    setAiConfigStatus("Configuración guardada. Las reglas y el enlace GPT activo ya quedaron actualizados.");
 
   }catch(error){
     console.error(error);
@@ -2911,6 +2948,52 @@ function closeMobileSidebar(){
 
 }
 
+
+function updateGptAccessButton(canAccess){
+
+  const button = document.getElementById("gptAccessButton");
+  if(!button) return;
+
+  button.style.display = canAccess ? "block" : "none";
+  button.disabled = false;
+  button.innerText = "Ingresar al GPT";
+
+}
+
+async function openActiveGpt(){
+
+  const button = document.getElementById("gptAccessButton");
+  if(button){
+    button.disabled = true;
+    button.innerText = "Abriendo...";
+  }
+
+  try{
+    const res = await fetch(API_URL + "/api/config/gpt-link", {
+      headers:{
+        Authorization:"Bearer " + token
+      }
+    });
+
+    const data = await res.json();
+
+    if(!res.ok || !data.url){
+      throw new Error(data.error || "No se pudo abrir el GPT activo.");
+    }
+
+    window.location.href = data.url;
+  }catch(error){
+    console.error(error);
+    alert(error.message || "No se pudo abrir el GPT activo.");
+  }finally{
+    if(button){
+      button.disabled = false;
+      button.innerText = "Ingresar al GPT";
+    }
+  }
+
+}
+
 function updatePremiumButtons(isPremium){
 
   const sidebarButton = document.getElementById("premiumButton");
@@ -2960,7 +3043,8 @@ async function loadProfile(){
       username: getDisplayName(username,email),
       plan: planName,
       expiresAt: subscription?.expiresAt || null,
-      canManageLibrary: profileState.canManageLibrary
+      canManageLibrary: profileState.canManageLibrary,
+      hasGptAccess: !!subscription || planInfo?.id === "admin"
     };
 
     document.getElementById("accountAvatar").innerText = getInitial(username,email);
@@ -2976,6 +3060,7 @@ async function loadProfile(){
       document.getElementById("accountExpiry").innerText =
         "Plan: " + planName + "\nVence: " + formatDate(subscription.expiresAt);
       updatePremiumButtons(true);
+      updateGptAccessButton(true);
       return;
 
     }
@@ -2984,6 +3069,7 @@ async function loadProfile(){
     document.getElementById("accountExpiry").innerText =
       "Plan: experiencia gratuita\nSin vencimiento activo";
     updatePremiumButtons(false);
+    updateGptAccessButton(planInfo?.id === "admin");
     showFreeNoticeIfNeeded();
 	
 	  }catch(error){
@@ -3195,6 +3281,7 @@ function logout(){
   document.getElementById("libraryModal").style.display = "none";
   document.getElementById("forgotPasswordModal").style.display = "none";
   updateLibraryAccess(false);
+  updateGptAccessButton(false);
   closeMobileSidebar();
 
   document.getElementById("app").style.display = "none";

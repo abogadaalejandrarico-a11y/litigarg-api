@@ -175,10 +175,13 @@ async function ensureSchema() {
       CREATE TABLE IF NOT EXISTS ai_config (
         id INTEGER PRIMARY KEY DEFAULT 1,
         custom_rules TEXT DEFAULT '',
+        active_gpt_url TEXT DEFAULT '',
         updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
         updated_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+
+    await client.query("ALTER TABLE ai_config ADD COLUMN IF NOT EXISTS active_gpt_url TEXT DEFAULT ''");
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS response_feedback (
@@ -256,7 +259,7 @@ async function readJsonDB() {
   db.chats = db.chats || [];
   db.chatMessages = db.chatMessages || [];
   db.jurisprudenceLibrary = db.jurisprudenceLibrary || [];
-  db.aiConfig = db.aiConfig || { customRules: "", updatedBy: null, updatedAt: null };
+  db.aiConfig = db.aiConfig || { customRules: "", activeGptUrl: "", updatedBy: null, updatedAt: null };
   db.projectAuthorship = db.projectAuthorship || null;
   db.responseFeedback = db.responseFeedback || [];
   db.learnedGuidance = db.learnedGuidance || [];
