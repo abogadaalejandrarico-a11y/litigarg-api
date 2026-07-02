@@ -29,7 +29,7 @@ export const PLAN_LIMITS = {
   [PLAN_IDS.PREMIUM]: {
     id: PLAN_IDS.PREMIUM,
     name: "Premium",
-    price: 49990,
+    price: 49999,
     messagesPerDay: 100,
     filesPerDay: 50,
     audiosPerDay: 25,
@@ -41,7 +41,7 @@ export const PLAN_LIMITS = {
   [PLAN_IDS.PRO]: {
     id: PLAN_IDS.PRO,
     name: "Premium",
-    price: 49990,
+    price: 49999,
     messagesPerDay: 100,
     filesPerDay: 50,
     audiosPerDay: 25,
@@ -53,7 +53,7 @@ export const PLAN_LIMITS = {
   [PLAN_IDS.PLUS]: {
     id: PLAN_IDS.PLUS,
     name: "Premium",
-    price: 49990,
+    price: 49999,
     messagesPerDay: 100,
     filesPerDay: 50,
     audiosPerDay: 25,

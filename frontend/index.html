@@ -1940,21 +1940,9 @@ body{
     <p>Compara las opciones y elige el acceso que mejor se acomode a tu ritmo de trabajo.</p>
 
     <div class="plan-options">
-      <div class="plan-card free-plan">
-        <strong>Gratis</strong>
-        <span>$0</span>
-        <small>Para crear tu cuenta, conocer LitigARG y revisar las opciones de acceso.</small>
-        <ul>
-          <li>Cuenta registrada en LitigARG.</li>
-          <li>Acceso limitado mientras activas tu experiencia Premium.</li>
-          <li>Ingreso al asistente activo disponible al adquirir Premium.</li>
-        </ul>
-        <button class="plan-action secondary" onclick="closePremiumModal()">Seguir gratis</button>
-      </div>
-
       <div class="plan-card featured-plan">
         <strong>Premium</strong>
-        <span>$49.990 COP</span>
+        <span>$49.999 COP</span>
         <small>Acceso mensual al asistente activo de LitigARG durante la etapa provisional.</small>
         <ul>
           <li>Acceso al boton privado de ingreso a LitigARG.</li>
@@ -2580,6 +2568,9 @@ function closePremiumModal(){
 }
 
 function showFreeNoticeIfNeeded(){
+
+  const app = document.getElementById("app");
+  if(app?.style.display !== "flex") return;
 
   const user = getCurrentUser();
 
