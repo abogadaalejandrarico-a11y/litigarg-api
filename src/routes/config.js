@@ -82,20 +82,20 @@ router.get("/gpt-link", authMiddlewares, async (req, res) => {
     const allowed = isAdminUser(req.user) || await isPremiumActive(req.user.userId);
 
     if (!allowed) {
-      return res.status(403).json({ error: "Activa un plan para ingresar al GPT de LitigARG" });
+      return res.status(403).json({ error: "Activa Premium para ingresar a LitigARG" });
     }
 
     const config = await getAiConfig();
     const url = normalizeGptUrl(config.activeGptUrl);
 
     if (!url) {
-      return res.status(404).json({ error: "El enlace del GPT activo aun no esta configurado" });
+      return res.status(404).json({ error: "El acceso activo de LitigARG aun no esta configurado" });
     }
 
     res.json({ url });
   } catch (error) {
     console.error("ERROR CARGANDO ENLACE GPT:", error);
-    res.status(500).json({ error: "Error cargando enlace GPT" });
+    res.status(500).json({ error: "Error cargando acceso a LitigARG" });
   }
 });
 

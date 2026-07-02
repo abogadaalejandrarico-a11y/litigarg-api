@@ -1812,7 +1812,7 @@ body{
         Biblioteca
       </button>
       <button class="gpt-access-button" id="gptAccessButton" onclick="openActiveGpt()">
-        Ingresar al GPT
+        Ingresar a LitigARG
       </button>
       <button class="premium-button" id="premiumButton" onclick="openPremiumModal()">
         Ver planes
@@ -1943,46 +1943,26 @@ body{
       <div class="plan-card free-plan">
         <strong>Gratis</strong>
         <span>$0</span>
-        <small>Para conocer LitigARG y probar sus funciones principales.</small>
+        <small>Para crear tu cuenta, conocer LitigARG y revisar las opciones de acceso.</small>
         <ul>
-          <li>Consultas limitadas.</li>
-          <li>Carga de archivos limitada.</li>
-          <li>Audios disponibles en planes Pro y Plus.</li>
-          <li>Videos disponibles en plan Plus.</li>
-          <li>Historial de hasta 5 conversaciones.</li>
-          <li>Acceso limitado con recarga diaria.</li>
+          <li>Cuenta registrada en LitigARG.</li>
+          <li>Acceso limitado mientras activas tu experiencia Premium.</li>
+          <li>Ingreso al asistente activo disponible al adquirir Premium.</li>
         </ul>
         <button class="plan-action secondary" onclick="closePremiumModal()">Seguir gratis</button>
       </div>
 
       <div class="plan-card featured-plan">
-        <strong>Pro</strong>
-        <span>$20.900/mes</span>
-        <small>Para uso frecuente en consultas, audiencias y analisis documental.</small>
+        <strong>Premium</strong>
+        <span>$49.990 COP</span>
+        <small>Acceso mensual al asistente activo de LitigARG durante la etapa provisional.</small>
         <ul>
-          <li>Hasta 50 consultas al dia.</li>
-          <li>Carga de hasta 20 archivos al dia.</li>
-          <li>Analisis de hasta 10 audios cortos al dia, hasta 10 MB por audio.</li>
-          <li>Videos disponibles en plan Plus.</li>
-          <li>Historial de hasta 20 conversaciones.</li>
-          <li>Mayor capacidad para consultas juridicas penales diarias.</li>
+          <li>Acceso al boton privado de ingreso a LitigARG.</li>
+          <li>Validacion de pago desde tu cuenta registrada.</li>
+          <li>Acceso mensual mientras tu plan este activo.</li>
+          <li>Redireccion segura sin publicar el enlace en la pagina.</li>
         </ul>
-        <button class="plan-action gold" onclick="activatePremium('pro_mensual')">Elegir Pro</button>
-      </div>
-
-      <div class="plan-card">
-        <strong>Plus</strong>
-        <span>$49.900/mes</span>
-        <small>Para trabajo intensivo, revision de documentos y mayor historial.</small>
-        <ul>
-          <li>Hasta 100 consultas al dia.</li>
-          <li>Carga de hasta 50 archivos al dia.</li>
-          <li>Analisis de hasta 25 audios amplios al dia, hasta 25 MB por audio.</li>
-          <li>Analisis de hasta 5 videos al dia, hasta 25 MB por video.</li>
-          <li>Historial de hasta 100 conversaciones.</li>
-          <li>Para litigantes penalistas con alto grado de argumentacion, estudio de casos y consultas juridicas penales diarias.</li>
-        </ul>
-        <button class="plan-action gold" onclick="activatePremium('plus_mensual')">Elegir Plus</button>
+        <button class="plan-action gold" onclick="activatePremium('premium')">Activar Premium</button>
       </div>
     </div>
 
@@ -1993,7 +1973,7 @@ body{
 <div class="modal-overlay" id="freeNoticeModal">
   <div class="modal">
     <h3>Experiencia gratuita</h3>
-    <p>Tu experiencia gratuita tiene limites diarios de preguntas y archivos. Cuando se agoten, puedes esperar la recarga diaria o elegir un plan Pro o Plus.</p>
+    <p>Tu experiencia gratuita permite crear tu cuenta y revisar el acceso. Para continuar hacia LitigARG debes activar Premium.</p>
 
     <button class="premium-action" onclick="closeFreeNotice(); openPremiumModal()">Ver planes</button>
     <button class="modal-close" onclick="closeFreeNotice()">Continuar gratis</button>
@@ -2988,8 +2968,7 @@ function togglePasswordForm(){
 function formatPlanName(plan){
 
   if(plan === "admin") return "Administradora";
-  if(plan === "plus_mensual" || plan === "premium_anual") return "Plus";
-  if(plan === "pro_mensual" || plan === "premium_mensual") return "Pro";
+  if(plan === "premium" || plan === "premium_mensual" || plan === "premium_anual" || plan === "plus_mensual" || plan === "pro_mensual") return "Premium";
   return "Experiencia gratuita";
 
 }
@@ -3092,7 +3071,7 @@ function updateGateAccess(canAccess, planName = ""){
   }
 
   if(button){
-    button.innerText = canAccess ? "Ingresar a LitigARG GPT" : "Activar acceso";
+    button.innerText = canAccess ? "Ingresar a LitigARG" : "Activar acceso";
   }
 
   if(plansButton){
@@ -3119,7 +3098,7 @@ function updateGptAccessButton(canAccess){
 
   button.style.display = canAccess ? "block" : "none";
   button.disabled = false;
-  button.innerText = "Ingresar al GPT";
+  button.innerText = "Ingresar a LitigARG";
   updateGateAccess(canAccess, profileState.plan);
 
 }
@@ -3142,17 +3121,17 @@ async function openActiveGpt(){
     const data = await res.json();
 
     if(!res.ok || !data.url){
-      throw new Error(data.error || "No se pudo abrir el GPT activo.");
+      throw new Error(data.error || "No se pudo abrir LitigARG.");
     }
 
     window.location.href = data.url;
   }catch(error){
     console.error(error);
-    alert(error.message || "No se pudo abrir el GPT activo.");
+    alert(error.message || "No se pudo abrir LitigARG.");
   }finally{
     if(button){
       button.disabled = false;
-      button.innerText = "Ingresar al GPT";
+      button.innerText = "Ingresar a LitigARG";
     }
   }
 

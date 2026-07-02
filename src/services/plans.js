@@ -1,13 +1,16 @@
 export const PLAN_IDS = {
   FREE: "free",
+  PREMIUM: "premium",
   PRO: "pro_mensual",
   PLUS: "plus_mensual",
   ADMIN: "admin"
 };
 
 const PLAN_ALIASES = {
-  premium_mensual: PLAN_IDS.PRO,
-  premium_anual: PLAN_IDS.PLUS
+  premium_mensual: PLAN_IDS.PREMIUM,
+  premium_anual: PLAN_IDS.PREMIUM,
+  pro_mensual: PLAN_IDS.PREMIUM,
+  plus_mensual: PLAN_IDS.PREMIUM
 };
 
 export const PLAN_LIMITS = {
@@ -23,22 +26,34 @@ export const PLAN_LIMITS = {
     videoMaxMb: 0,
     chatLimit: 5
   },
+  [PLAN_IDS.PREMIUM]: {
+    id: PLAN_IDS.PREMIUM,
+    name: "Premium",
+    price: 49990,
+    messagesPerDay: 100,
+    filesPerDay: 50,
+    audiosPerDay: 25,
+    audioMaxMb: 25,
+    videosPerDay: 5,
+    videoMaxMb: 25,
+    chatLimit: 100
+  },
   [PLAN_IDS.PRO]: {
     id: PLAN_IDS.PRO,
-    name: "Pro",
-    price: 20900,
-    messagesPerDay: 50,
-    filesPerDay: 20,
-    audiosPerDay: 10,
-    audioMaxMb: 10,
-    videosPerDay: 0,
-    videoMaxMb: 0,
-    chatLimit: 20
+    name: "Premium",
+    price: 49990,
+    messagesPerDay: 100,
+    filesPerDay: 50,
+    audiosPerDay: 25,
+    audioMaxMb: 25,
+    videosPerDay: 5,
+    videoMaxMb: 25,
+    chatLimit: 100
   },
   [PLAN_IDS.PLUS]: {
     id: PLAN_IDS.PLUS,
-    name: "Plus",
-    price: 49900,
+    name: "Premium",
+    price: 49990,
     messagesPerDay: 100,
     filesPerDay: 50,
     audiosPerDay: 25,
@@ -105,5 +120,5 @@ export function getPlanVideoMaxBytes(plan, options = {}) {
 
 export function isPaidPlan(plan) {
   const normalizedPlan = normalizePlanId(plan);
-  return normalizedPlan === PLAN_IDS.PRO || normalizedPlan === PLAN_IDS.PLUS;
+  return normalizedPlan === PLAN_IDS.PREMIUM;
 }
