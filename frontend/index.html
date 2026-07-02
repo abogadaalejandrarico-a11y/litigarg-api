@@ -2105,10 +2105,11 @@ body{
       <label class="library-meta">Reglas adicionales de la administradora</label>
       <textarea id="aiCustomRules" placeholder="Agrega aquí nuevas reglas, criterios de estilo, límites o instrucciones estratégicas para LitigARG." style="min-height:180px"></textarea>
 
-      <label class="library-meta">Enlace GPT activo del mes</label>
-      <input type="url" id="activeGptUrl" placeholder="Pega aquí el enlace privado del GPT activo">
+      <label class="library-meta">Enlace mensual de redireccionamiento</label>
+      <input type="url" id="activeGptUrl" placeholder="Pega aqui el enlace privado activo del mes">
+      <button class="premium-action" onclick="saveGptRedirectLink()">Actualizar enlace mensual</button>
 
-      <button class="premium-action" onclick="saveAiConfig()">Guardar configuración</button>
+      <button class="premium-action" onclick="saveAiConfig()">Guardar configuracion de IA</button>
       <div class="library-status" id="aiConfigStatus"></div>
     </div>
 
@@ -2722,9 +2723,9 @@ async function loadAiConfig(){
 
 }
 
-async function saveAiConfig(){
+async function saveConfigPayload({ statusMessage, successMessage }){
 
-  setAiConfigStatus("Guardando configuración...");
+  setAiConfigStatus(statusMessage || "Guardando configuracion...");
 
   try{
     const res = await fetch(API_URL + "/api/config/ai", {
@@ -2742,7 +2743,7 @@ async function saveAiConfig(){
     const data = await res.json();
 
     if(!res.ok){
-      throw new Error(data.error || "No se pudo guardar la configuración.");
+      throw new Error(data.error || "No se pudo guardar la configuracion.");
     }
 
     document.getElementById("aiCustomRules").value = data.customRules || "";
@@ -2750,12 +2751,30 @@ async function saveAiConfig(){
     if(activeGptInput){
       activeGptInput.value = data.activeGptUrl || activeGptInput.value || "";
     }
-    setAiConfigStatus("Configuración guardada. Las reglas y el enlace GPT activo ya quedaron actualizados.");
+    setAiConfigStatus(successMessage || "Configuracion guardada.");
 
   }catch(error){
     console.error(error);
-    setAiConfigStatus(error.message || "No se pudo guardar la configuración.", true);
+    setAiConfigStatus(error.message || "No se pudo guardar la configuracion.", true);
   }
+
+}
+
+async function saveGptRedirectLink(){
+
+  await saveConfigPayload({
+    statusMessage:"Actualizando enlace mensual...",
+    successMessage:"Enlace mensual actualizado. Los usuarios Premium ya seran redirigidos a este acceso."
+  });
+
+}
+
+async function saveAiConfig(){
+
+  await saveConfigPayload({
+    statusMessage:"Guardando configuracion de IA...",
+    successMessage:"Configuracion guardada. Las reglas y el enlace mensual quedaron actualizados."
+  });
 
 }
 
