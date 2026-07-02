@@ -2519,6 +2519,14 @@ function showAccessGate(){
 
 function enterIndependentApp(){
 
+  const isAdmin = profileState.plan === "Administradora";
+
+  if(!gateHasGptAccess && !isAdmin){
+    alert("Por ahora la IA independiente solo esta disponible para cuentas Premium activas y la administradora.");
+    openPremiumModal();
+    return;
+  }
+
   document.getElementById("accessGate").style.display = "none";
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("app").style.display = "flex";
