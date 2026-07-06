@@ -25,6 +25,7 @@ import {
   formatGuidanceContext
 } from "../services/learning.js";
 import { getChatMemoryContext } from "../services/chats.js";
+import { isAdminUserId } from "../services/adminAccess.js";
 import { readDB } from "../db/db.js";
 
 const router = express.Router();
@@ -37,6 +38,16 @@ const upload = multer({
 
 async function checkAccess(userId, kind = "message") {
   const plan = await getUserPlan(userId);
+
+  if (!(await isAdminUserId(userId))) {
+    return {
+      allowed: false,
+      adminOnly: true,
+      plan,
+      usage: null,
+      counter: null
+    };
+  }
   const dailyAccess = await canUseDailyFeature(userId, kind);
 
   if (!dailyAccess.allowed) {
@@ -69,6 +80,10 @@ function limitMessage(kind, planName) {
         ? "analisis de videos"
       : "preguntas";
   return `Se acabo tu limite diario de ${feature} del plan ${planName}. Podras volver a usarlo cuando se recargue tu cupo diario o cambiar a un plan superior para ampliar tus limites.`;
+}
+
+function adminOnlyMessage() {
+  return "Por ahora la IA independiente de LitigARG esta disponible solo para la cuenta administradora mientras terminamos su preparacion para salir al mercado.";
 }
 
 function buildResponseGuidance(message = "") {
@@ -257,6 +272,13 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     const access = await checkAccess(userId, "message");
 
     if (!access.allowed) {
+      if (access.adminOnly) {
+        return res.status(403).json({
+          code: "ADMIN_ONLY_INDEPENDENT_AI",
+          error: adminOnlyMessage()
+        });
+      }
+
       return res.status(403).json({
         code: "DAILY_LIMIT_REACHED",
         error: limitMessage("message", access.plan.name),
@@ -318,6 +340,13 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
     const access = await checkAccess(userId, accessKind);
 
     if (!access.allowed) {
+      if (access.adminOnly) {
+        return res.status(403).json({
+          code: "ADMIN_ONLY_INDEPENDENT_AI",
+          error: adminOnlyMessage()
+        });
+      }
+
       return res.status(403).json({
         code: "DAILY_LIMIT_REACHED",
         error: limitMessage(accessKind, access.plan.name),
