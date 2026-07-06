@@ -201,6 +201,23 @@ body{
   cursor:pointer;
 }
 
+.access-tertiary{
+  width:100%;
+  margin-top:10px;
+  padding:12px;
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px;
+  background:#222222;
+  color:#D1D5DB;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.access-tertiary:hover{
+  background:#2D2D2D;
+  color:#FFFFFF;
+}
+
 .access-footnote{
   margin-top:26px;
   padding-top:16px;
@@ -1772,6 +1789,7 @@ body{
     <div class="access-status" id="gateAccessStatus">Consultando acceso...</div>
     <button class="access-primary" id="gateGptButton" onclick="handleGatePrimaryAction()">Verificando...</button>
     <button class="access-secondary" id="gatePlansButton" onclick="openPremiumModal()">Ver planes disponibles</button>
+    <button class="access-tertiary" onclick="logout()">Cambiar cuenta</button>
     <div class="access-footnote">
       <button id="independentAppEntryButton" onclick="enterIndependentApp()">Panel interno de administradora</button>
     </div>
