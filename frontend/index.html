@@ -1302,10 +1302,37 @@ body{
   line-height:1.55;
 }
 
+#aiConfigModal .workspace-modal{
+  height:min(760px, calc(100dvh - 36px));
+  max-height:calc(100dvh - 36px);
+}
+
+#aiConfigModal .library-form{
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  padding-right:6px;
+}
+
 #aiCustomRules{
-  min-height:560px !important;
+  min-height:260px !important;
+  max-height:clamp(260px, 42vh, 390px);
   resize:vertical;
   line-height:1.55;
+  overflow:auto;
+}
+
+#aiConfigModal #activeGptUrl{
+  min-height:48px;
+}
+
+#aiConfigModal .premium-action{
+  width:100%;
+  min-height:52px;
+  padding:15px 18px;
+  border-radius:12px;
+  font-size:15px;
+  font-weight:900;
 }
 
 .workspace-modal .library-item{
