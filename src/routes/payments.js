@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import client from "../services/mercadopago.js";
 import { Payment, Preference } from "mercadopago";
 import { readDB, writeDB } from "../db/db.js";
@@ -45,12 +46,19 @@ router.post("/create", async (req, res) => {
     const preference = new Preference(client);
     const apiUrl = process.env.PUBLIC_API_URL || "https://litigarg-api.onrender.com";
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const orderId = [
+      "litigarg",
+      userId,
+      plan,
+      Date.now(),
+      crypto.randomBytes(6).toString("hex")
+    ].join(":");
 
     const result = await preference.create({
       body: {
         items: [
           {
-            id: plan,
+            id: orderId,
             title,
             description: "Acceso Premium mensual a LitigARG",
             category_id: "services",
@@ -71,17 +79,32 @@ router.post("/create", async (req, res) => {
         },
         auto_return: "approved",
         notification_url: `${apiUrl}/api/payments/webhook`,
-        external_reference: String(userId),
+        external_reference: orderId,
         metadata: {
           userId,
-          plan
+          plan,
+          orderId
         }
       }
     });
 
+    db.paymentAttempts = db.paymentAttempts || [];
+    db.paymentAttempts.push({
+      id: db.paymentAttempts.length + 1,
+      orderId,
+      preferenceId: result.id,
+      userId: Number(userId),
+      plan,
+      status: "created",
+      amount: price,
+      created_at: new Date().toISOString()
+    });
+    await writeDB(db);
+
     res.json({
       init_point: result.init_point,
-      id: result.id
+      id: result.id,
+      orderId
     });
   } catch (error) {
     console.error("ERROR MERCADOPAGO:", error);
@@ -115,8 +138,11 @@ router.post("/webhook", async (req, res) => {
     const payment = await paymentClient.get({ id: paymentId });
 
     const metadata = payment.metadata || {};
-    const userId = metadata.userId || metadata.user_id || payment.external_reference;
-    const plan = metadata.plan;
+    const externalReference = payment.external_reference || "";
+    const referenceParts = String(externalReference).split(":");
+    const userId = metadata.userId || metadata.user_id || referenceParts[1] || externalReference;
+    const plan = metadata.plan || referenceParts[2];
+    const orderId = metadata.orderId || metadata.order_id || externalReference;
 
     if (!userId || !plans[plan]) {
       console.error("Pago sin metadata suficiente:", { paymentId, userId, plan });
@@ -136,6 +162,15 @@ router.post("/webhook", async (req, res) => {
       return res.sendStatus(200);
     }
 
+    db.paymentAttempts = db.paymentAttempts || [];
+    const attempt = db.paymentAttempts.find(item => String(item.orderId) === String(orderId));
+    if (attempt) {
+      attempt.status = payment.status;
+      attempt.statusDetail = payment.status_detail || null;
+      attempt.providerPaymentId = payment.id;
+      attempt.updated_at = new Date().toISOString();
+    }
+
     db.payments.push({
       id: db.payments.length + 1,
       provider: "mercadopago",
@@ -144,6 +179,8 @@ router.post("/webhook", async (req, res) => {
       plan,
       status: payment.status,
       amount: payment.transaction_amount,
+      orderId,
+      statusDetail: payment.status_detail || null,
       created_at: new Date().toISOString()
     });
 
