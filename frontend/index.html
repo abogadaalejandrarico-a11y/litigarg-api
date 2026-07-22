@@ -3204,6 +3204,7 @@ async function openActiveGpt(){
       throw new Error(data.error || "No se pudo abrir LitigARG.");
     }
 
+    alert("Recuerda que para disfrutar de LitigARG, debes iniciar sesión en ChatGPT. Si ChatGPT te lo solicita, inicia sesión y continúa con LitigARG.");
     window.location.href = data.url;
   }catch(error){
     console.error(error);
