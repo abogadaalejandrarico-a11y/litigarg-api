@@ -50,12 +50,20 @@ router.post("/create", async (req, res) => {
       body: {
         items: [
           {
+            id: plan,
             title,
+            description: "Acceso Premium mensual a LitigARG",
+            category_id: "services",
             quantity: 1,
             unit_price: price,
             currency_id: "COP"
           }
         ],
+        payer: {
+          name: user.username || "Cliente LitigARG",
+          email: user.email,
+          date_created: user.created_at || new Date().toISOString()
+        },
         back_urls: {
           success: `${frontendUrl}/success`,
           failure: `${frontendUrl}/failure`,
