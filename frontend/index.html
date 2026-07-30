@@ -118,6 +118,35 @@ body{
   background:transparent !important;
   color:#FFFFFF !important;
 }
+.terms-acceptance{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin:0 0 16px;
+  color:#D1D5DB;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.terms-acceptance input{
+  width:18px !important;
+  min-width:18px;
+  height:18px;
+  margin:2px 0 0 !important;
+  accent-color:#F5C542;
+  cursor:pointer;
+}
+
+.terms-acceptance a{
+  color:#F5C542;
+  font-weight:700;
+  text-decoration:none;
+}
+
+.terms-acceptance a:hover{
+  color:#FFD966;
+  text-decoration:underline;
+}
 
 /* APP */
 
@@ -1803,7 +1832,15 @@ body{
   placeholder="Contraseña"
   onkeypress="handleLoginEnter(event)"
 >
-    <button id="authButton" onclick="handleAuth()">Ingresar</button>
+    <label class="terms-acceptance" for="termsAccepted">
+      <input type="checkbox" id="termsAccepted">
+      <span>
+        Acepto los
+        <a href="terminos.html" target="_blank" rel="noopener noreferrer">t&eacute;rminos y condiciones</a>
+        de uso de LitigARG.
+      </span>
+    </label>
+<button id="authButton" onclick="handleAuth()">Ingresar</button>
     <button class="forgot-link" id="forgotPasswordButton" onclick="openForgotPasswordModal()">Olvidé mi contraseña</button>
 
     <div class="auth-toggle">
@@ -2363,6 +2400,14 @@ function handlePasswordResetLink(){
 
 async function handleAuth(){
 
+  const termsAccepted = document.getElementById("termsAccepted");
+
+  if(termsAccepted && !termsAccepted.checked){
+
+    alert("Para continuar debes aceptar los terminos y condiciones de uso de LitigARG.");
+    return;
+
+  }
   if(authMode === "register"){
 
     await register();
