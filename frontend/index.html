@@ -1836,7 +1836,7 @@ body{
   placeholder="Contraseña"
   onkeypress="handleLoginEnter(event)"
 >
-    <label class="terms-acceptance" for="termsAccepted">
+    <label class="terms-acceptance" id="termsAcceptance" for="termsAccepted" style="display:none">
       <input type="checkbox" id="termsAccepted">
       <span>
         Acepto los
@@ -2245,6 +2245,8 @@ function toggleAuthMode(){
   const toggleText = document.getElementById("authToggleText");
   const toggleButton = document.getElementById("authToggleButton");
   const usernameInput = document.getElementById("username");
+  const termsAcceptance = document.getElementById("termsAcceptance");
+  const termsAccepted = document.getElementById("termsAccepted");
 
   if(authMode === "register"){
 
@@ -2252,6 +2254,8 @@ function toggleAuthMode(){
     toggleText.innerText = "¿Ya tienes cuenta?";
     toggleButton.innerText = "Ingresar";
     usernameInput.style.display = "block";
+    if(termsAcceptance) termsAcceptance.style.display = "flex";
+    if(termsAccepted) termsAccepted.checked = false;
     document.getElementById("forgotPasswordButton").style.display = "none";
     return;
 
@@ -2261,6 +2265,8 @@ function toggleAuthMode(){
   toggleText.innerText = "¿No tienes cuenta?";
   toggleButton.innerText = "Crear cuenta";
   usernameInput.style.display = "none";
+  if(termsAcceptance) termsAcceptance.style.display = "none";
+  if(termsAccepted) termsAccepted.checked = false;
   document.getElementById("forgotPasswordButton").style.display = "block";
 
 }
@@ -2405,13 +2411,14 @@ async function handleAuth(){
 
   const termsAccepted = document.getElementById("termsAccepted");
 
-  if(termsAccepted && !termsAccepted.checked){
-
-    alert("Para continuar debes aceptar los terminos y condiciones de uso de LitigARG.");
-    return;
-
-  }
   if(authMode === "register"){
+
+    if(termsAccepted && !termsAccepted.checked){
+
+      alert("Para crear tu cuenta debes aceptar los terminos y condiciones de LitigARG.");
+      return;
+
+    }
 
     await register();
     return;
@@ -3948,7 +3955,9 @@ async function register(){
         body:JSON.stringify({
           username,
           email,
-          password
+          password,
+          termsAccepted: true,
+          termsVersion: "LitigARG julio 2026"
         })
       }
     );

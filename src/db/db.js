@@ -46,12 +46,20 @@ async function ensureSchema() {
         password_hash TEXT,
         reset_token_hash TEXT,
         reset_token_expires_at TIMESTAMPTZ,
+        terms_accepted_at TIMESTAMPTZ,
+        terms_version TEXT,
+        terms_accepted_ip TEXT,
+        terms_accepted_user_agent TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
 
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMPTZ");
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ");
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT");
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_ip TEXT");
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_user_agent TEXT");
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS subscriptions (
@@ -324,6 +332,10 @@ export async function readDB() {
         password_hash: row.password_hash,
         resetTokenHash: row.reset_token_hash,
         resetTokenExpiresAt: toIso(row.reset_token_expires_at),
+        termsAcceptedAt: toIso(row.terms_accepted_at),
+        termsVersion: row.terms_version,
+        termsAcceptedIp: row.terms_accepted_ip,
+        termsAcceptedUserAgent: row.terms_accepted_user_agent,
         created_at: toIso(row.created_at)
       })),
       subscriptions: subscriptions.rows.map(row => ({
@@ -395,9 +407,11 @@ export async function writeDB(data) {
         `
           INSERT INTO users (
             id, username, email, password, password_hash,
-            reset_token_hash, reset_token_expires_at, created_at
+            reset_token_hash, reset_token_expires_at,
+            terms_accepted_at, terms_version, terms_accepted_ip, terms_accepted_user_agent,
+            created_at
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, COALESCE($8::timestamptz, NOW()))
+          VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9, $10, $11, COALESCE($12::timestamptz, NOW()))
           ON CONFLICT (id) DO UPDATE SET
             username = EXCLUDED.username,
             email = EXCLUDED.email,
@@ -405,6 +419,10 @@ export async function writeDB(data) {
             password_hash = EXCLUDED.password_hash,
             reset_token_hash = EXCLUDED.reset_token_hash,
             reset_token_expires_at = EXCLUDED.reset_token_expires_at,
+            terms_accepted_at = EXCLUDED.terms_accepted_at,
+            terms_version = EXCLUDED.terms_version,
+            terms_accepted_ip = EXCLUDED.terms_accepted_ip,
+            terms_accepted_user_agent = EXCLUDED.terms_accepted_user_agent,
             created_at = EXCLUDED.created_at
         `,
         [
@@ -415,6 +433,10 @@ export async function writeDB(data) {
           user.password_hash || null,
           user.resetTokenHash || user.reset_token_hash || null,
           user.resetTokenExpiresAt || user.reset_token_expires_at || null,
+          user.termsAcceptedAt || user.terms_accepted_at || null,
+          user.termsVersion || user.terms_version || null,
+          user.termsAcceptedIp || user.terms_accepted_ip || null,
+          user.termsAcceptedUserAgent || user.terms_accepted_user_agent || null,
           user.created_at || null
         ]
       );

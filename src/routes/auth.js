@@ -13,6 +13,7 @@ import {
 } from "../services/email.js";
 
 const router = express.Router();
+const TERMS_VERSION = "LitigARG julio 2026";
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -25,6 +26,11 @@ function findUserByEmail(users, email) {
 
 function hashResetToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function getRequestIp(req) {
+  const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwardedFor || req.ip || req.socket?.remoteAddress || null;
 }
 
 function getAppBaseUrl(req) {
@@ -40,12 +46,18 @@ function getAppBaseUrl(req) {
 // 🔥 REGISTER
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, username } = req.body;
+    const { email, password, username, termsAccepted, termsVersion } = req.body;
     const cleanUsername = (username || "").trim();
 
     if (!cleanUsername || cleanUsername.length > 10) {
       return res.status(400).json({
         error: "El nombre de usuario debe tener máximo 10 caracteres"
+      });
+    }
+
+    if (termsAccepted !== true) {
+      return res.status(400).json({
+        error: "Debes aceptar los terminos y condiciones para crear tu cuenta"
       });
     }
 
@@ -72,6 +84,10 @@ router.post("/register", async (req, res) => {
       username: cleanUsername,
       email,
       password: hashedPassword,
+      termsAcceptedAt: new Date().toISOString(),
+      termsVersion: termsVersion || TERMS_VERSION,
+      termsAcceptedIp: getRequestIp(req),
+      termsAcceptedUserAgent: req.get("user-agent") || null,
       created_at: new Date().toISOString()
     };
 
