@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import path from "path";
 import { getPlanName as getConfiguredPlanName } from "./plans.js";
 
 let transporter;
@@ -40,27 +41,15 @@ function getPlanName(plan) {
   return getConfiguredPlanName(plan);
 }
 
-function getAppUrl() {
-  return (
-    process.env.APP_URL ||
-    process.env.PUBLIC_API_URL ||
-    process.env.PUBLIC_APP_URL ||
-    process.env.FRONTEND_URL ||
-    "https://litigarg-api.onrender.com"
-  ).replace(/\/$/, "");
-}
-
 function getEmailSignatureText() {
   return "Inteligencia Artificial para penalistas";
 }
 
 function getEmailSignatureHtml() {
-  const logoUrl = `${getAppUrl()}/logoblanco.png`;
-
   return `
     <div style="margin-top:32px;padding-top:22px;">
       <div style="display:inline-block;background:#090909;border:1px solid #2b2b2b;border-radius:14px;padding:16px 20px;">
-        <img src="${logoUrl}" alt="LitigARG" width="210" style="display:block;width:210px;max-width:100%;height:auto;margin:0 auto 8px;">
+        <img src="cid:litigarg-logo" alt="LitigARG" width="210" style="display:block;width:210px;max-width:100%;height:auto;margin:0 auto 8px;">
         <div style="font-family:Arial,sans-serif;font-size:13px;line-height:1.4;color:#f5c542;text-align:center;font-weight:700;">
           Inteligencia Artificial para penalistas
         </div>
@@ -82,7 +71,14 @@ async function sendEmail({ to, subject, text, html }) {
     to,
     subject,
     text,
-    html
+    html,
+    attachments: html ? [
+      {
+        filename: "logoblanco.png",
+        path: path.join(process.cwd(), "frontend", "logoblanco.png"),
+        cid: "litigarg-logo"
+      }
+    ] : undefined
   });
 
   return true;
