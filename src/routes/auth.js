@@ -103,9 +103,12 @@ router.post("/register", async (req, res) => {
 
     db.users.push(newUser);
     await writeDB(db);
-    sendAccountCreatedEmail(newUser).catch(error =>
-      console.error("ERROR ENVIANDO CORREO DE CUENTA:", error)
-    );
+
+    try {
+      await sendAccountCreatedEmail(newUser);
+    } catch (error) {
+      console.error("ERROR ENVIANDO CORREO DE CUENTA:", error);
+    }
 
     res.json({ message: "Usuario creado", userId: newUser.id });
 
@@ -373,9 +376,12 @@ router.patch("/password", authMiddlewares, async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10);
     delete user.password_hash;
     await writeDB(db);
-    sendPasswordChangedEmail(user).catch(error =>
-      console.error("ERROR ENVIANDO CORREO DE CONTRASEÑA:", error)
-    );
+
+    try {
+      await sendPasswordChangedEmail(user);
+    } catch (error) {
+      console.error("ERROR ENVIANDO CORREO DE CONTRASENA:", error);
+    }
 
     res.json({ message: "Contraseña actualizada" });
   } catch (error) {
