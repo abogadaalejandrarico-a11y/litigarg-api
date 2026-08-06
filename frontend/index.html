@@ -122,6 +122,55 @@ body{
   background:transparent !important;
   color:#FFFFFF !important;
 }
+.password-field{
+  position:relative;
+  width:100%;
+}
+
+.password-field input{
+  width:100%;
+  padding-right:48px !important;
+}
+
+.login-box .password-field input{
+  margin-bottom:15px;
+}
+
+.password-toggle{
+  position:absolute;
+  top:50%;
+  right:10px;
+  transform:translateY(-50%);
+  width:34px !important;
+  height:34px;
+  min-width:34px;
+  margin:0 !important;
+  padding:0 !important;
+  border:none;
+  border-radius:10px;
+  background:transparent !important;
+  color:#D1D5DB !important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  font-size:17px;
+  line-height:1;
+}
+
+.password-toggle:hover{
+  background:rgba(255,255,255,0.08) !important;
+  color:#FFFFFF !important;
+}
+
+.account-edit .password-field{
+  flex:1 1 150px;
+}
+
+.account-edit .password-field input,
+.library-form .password-field input{
+  margin:0;
+}
 .terms-acceptance{
   display:flex;
   align-items:flex-start;
@@ -1830,12 +1879,7 @@ body{
   placeholder="Correo"
 >
 
-<input
-  type="password"
-  id="password"
-  placeholder="Contraseña"
-  onkeypress="handleLoginEnter(event)"
->
+<div class="password-field"><input type="password" id="password" placeholder="Contraseña" onkeypress="handleLoginEnter(event)"><button type="button" class="password-toggle" onclick="togglePasswordVisibility('password', this)" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button></div>
     <label class="terms-acceptance" id="termsAcceptance" for="termsAccepted" style="display:none">
       <input type="checkbox" id="termsAccepted">
       <span>
@@ -2074,8 +2118,8 @@ body{
     </div>
 
     <div class="library-form" id="resetPasswordForm" style="display:none">
-      <input type="password" id="resetNewPassword" placeholder="Nueva contraseña">
-      <input type="password" id="resetConfirmPassword" placeholder="Confirmar nueva contraseña">
+      <div class="password-field"><input type="password" id="resetNewPassword" placeholder="Nueva contraseña"><button type="button" class="password-toggle" onclick="togglePasswordVisibility('resetNewPassword', this)" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button></div>
+      <div class="password-field"><input type="password" id="resetConfirmPassword" placeholder="Confirmar nueva contraseña"><button type="button" class="password-toggle" onclick="togglePasswordVisibility('resetConfirmPassword', this)" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button></div>
       <button class="premium-action" onclick="submitPasswordReset()">Cambiar contraseña</button>
     </div>
 
@@ -2111,9 +2155,9 @@ body{
         <label>Cambiar contraseña</label>
         <button onclick="togglePasswordForm()">Cambiar contraseña</button>
         <div class="account-edit password-form" id="passwordForm">
-          <input type="password" id="currentPassword" placeholder="Actual">
-          <input type="password" id="newPassword" placeholder="Nueva">
-          <input type="password" id="confirmPassword" placeholder="Confirmar nueva">
+          <div class="password-field"><input type="password" id="currentPassword" placeholder="Actual"><button type="button" class="password-toggle" onclick="togglePasswordVisibility('currentPassword', this)" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button></div>
+          <div class="password-field"><input type="password" id="newPassword" placeholder="Nueva"><button type="button" class="password-toggle" onclick="togglePasswordVisibility('newPassword', this)" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button></div>
+          <div class="password-field"><input type="password" id="confirmPassword" placeholder="Confirmar nueva"><button type="button" class="password-toggle" onclick="togglePasswordVisibility('confirmPassword', this)" aria-label="Mostrar contraseña" title="Mostrar contraseña">👁</button></div>
           <button onclick="updatePassword()">Cambiar</button>
         </div>
       </div>
@@ -3086,6 +3130,16 @@ function toggleUsernameForm(){
 
 }
 
+
+function togglePasswordVisibility(inputId, button){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  const isHidden = input.type === "password";
+  input.type = isHidden ? "text" : "password";
+  button.innerText = isHidden ? "🙈" : "👁";
+  button.setAttribute("aria-label", isHidden ? "Ocultar contraseña" : "Mostrar contraseña");
+  button.setAttribute("title", isHidden ? "Ocultar contraseña" : "Mostrar contraseña");
+}
 function togglePasswordForm(){
 
   document.getElementById("passwordForm").classList.toggle("open");
