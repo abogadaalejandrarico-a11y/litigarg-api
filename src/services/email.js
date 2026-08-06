@@ -66,7 +66,7 @@ async function sendEmail({ to, subject, text, html }) {
     return false;
   }
 
-  await mailer.sendMail({
+  const info = await mailer.sendMail({
     from: process.env.SMTP_FROM || `"LitigARG" <${process.env.SMTP_USER}>`,
     to,
     subject,
@@ -81,6 +81,7 @@ async function sendEmail({ to, subject, text, html }) {
     ] : undefined
   });
 
+  console.log(`CORREO ENVIADO: ${subject} -> ${to} (${info.messageId || "sin messageId"})`);
   return true;
 }
 

@@ -24,6 +24,16 @@ function findUserByEmail(users, email) {
   return users.find(user => normalizeEmail(user.email) === cleanEmail);
 }
 
+function maskEmailForLogs(email) {
+  const cleanEmail = normalizeEmail(email);
+  const [name = "", domain = ""] = cleanEmail.split("@");
+
+  if (!domain) return "correo-invalido";
+
+  const visibleName = name.length <= 2 ? name[0] || "*" : `${name.slice(0, 2)}***`;
+  return `${visibleName}@${domain}`;
+}
+
 function hashResetToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
@@ -160,6 +170,8 @@ router.post("/forgot-password", async (req, res) => {
     const user = findUserByEmail(db.users, email);
 
     if (user) {
+      console.log(`RECUPERACION DE CONTRASENA: cuenta encontrada ${maskEmailForLogs(email)}`);
+
       const resetToken = crypto.randomBytes(32).toString("hex");
       const resetUrl = `${getAppBaseUrl(req)}/?resetToken=${resetToken}`;
 
@@ -167,9 +179,13 @@ router.post("/forgot-password", async (req, res) => {
       user.resetTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
       await writeDB(db);
 
-      sendPasswordResetEmail(user, resetUrl).catch(error =>
-        console.error("ERROR ENVIANDO CORREO DE RECUPERACION:", error)
-      );
+      try {
+        await sendPasswordResetEmail(user, resetUrl);
+      } catch (error) {
+        console.error("ERROR ENVIANDO CORREO DE RECUPERACION:", error);
+      }
+    } else {
+      console.log(`RECUPERACION DE CONTRASENA: sin cuenta registrada ${maskEmailForLogs(email)}`);
     }
 
     res.json({
