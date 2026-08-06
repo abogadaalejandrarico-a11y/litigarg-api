@@ -1865,6 +1865,7 @@ body{
     <div class="access-status" id="gateAccessStatus">Consultando acceso...</div>
     <button class="access-primary" id="gateGptButton" onclick="handleGatePrimaryAction()">Verificando...</button>
     <button class="access-secondary" id="gatePlansButton" onclick="openPremiumModal()">Ver planes disponibles</button>
+    <button class="access-tertiary" onclick="openGatePasswordChange()">Cambiar contrase&ntilde;a</button>
     <button class="access-tertiary" onclick="logout()">Cambiar cuenta</button>
     <div class="access-footnote">
       <button id="independentAppEntryButton" onclick="enterIndependentApp()">Panel interno de administradora</button>
@@ -3088,6 +3089,17 @@ function toggleUsernameForm(){
 function togglePasswordForm(){
 
   document.getElementById("passwordForm").classList.toggle("open");
+
+}
+
+function openGatePasswordChange(){
+
+  openAccountDetails();
+  document.getElementById("passwordForm").classList.add("open");
+  document.getElementById("currentPassword").value = "";
+  document.getElementById("newPassword").value = "";
+  document.getElementById("confirmPassword").value = "";
+  document.getElementById("currentPassword").focus();
 
 }
 
