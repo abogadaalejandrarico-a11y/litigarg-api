@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { readDB, writeDB } from "../db/db.js";
 import authMiddlewares from "../middlewares/auth.js";
-import { getActiveSubscription, getUserPlan } from "../services/subscription.js";
+import { getActiveSubscription, getGptTrialAccess, getUserPlan } from "../services/subscription.js";
 import { isAdminUser } from "../services/adminAccess.js";
 import {
   sendAccountCreatedEmail,
@@ -258,6 +258,7 @@ router.get("/me", authMiddlewares, async (req, res) => {
     const subscription = await getActiveSubscription(user.id);
     const admin = isAdminUser(user);
     const plan = await getUserPlan(user.id);
+    const trial = admin || subscription ? { active: false, expiresAt: null } : await getGptTrialAccess(user.id);
 
     res.json({
       user: {
@@ -289,6 +290,10 @@ router.get("/me", authMiddlewares, async (req, res) => {
         videosPerDay: plan.videosPerDay,
         videoMaxMb: plan.videoMaxMb,
         chatLimit: plan.chatLimit
+      },
+      trial: {
+        active: !!trial.active,
+        expiresAt: trial.expiresAt || null
       }
     });
   } catch (error) {

@@ -57,6 +57,8 @@ async function ensureSchema() {
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMPTZ");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ");
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ");
+    await client.query("ALTER TABLE users ALTER COLUMN created_at SET DEFAULT NOW()");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_ip TEXT");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_user_agent TEXT");

@@ -2,7 +2,7 @@ import express from "express";
 import authMiddlewares from "../middlewares/auth.js";
 import { isAdminUser } from "../services/adminAccess.js";
 import { getAiConfig, saveAiConfig } from "../services/aiConfig.js";
-import { isPremiumActive } from "../services/subscription.js";
+import { hasGptAccess } from "../services/subscription.js";
 import { getBasePrompt } from "../services/openai.js";
 import { ensureAuthorshipRecord } from "../services/authorship.js";
 
@@ -79,10 +79,10 @@ router.put("/ai", authMiddlewares, requireAdmin, async (req, res) => {
 
 router.get("/gpt-link", authMiddlewares, async (req, res) => {
   try {
-    const allowed = isAdminUser(req.user) || await isPremiumActive(req.user.userId);
+    const allowed = isAdminUser(req.user) || await hasGptAccess(req.user.userId);
 
     if (!allowed) {
-      return res.status(403).json({ error: "Activa Premium para ingresar a LitigARG" });
+      return res.status(403).json({ error: "Tu prueba gratuita de 24 horas finalizo. Activa Premium para ingresar a LitigARG." });
     }
 
     const config = await getAiConfig();

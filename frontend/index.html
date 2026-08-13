@@ -2269,6 +2269,8 @@ let profileState = {
   username:"",
   plan:"Experiencia gratuita",
   expiresAt:null,
+  trialActive:false,
+  trialExpiresAt:null,
   canManageLibrary:false
 };
 
@@ -3249,21 +3251,33 @@ function closeMobileSidebar(){
 
 
 
-function updateGateAccess(canAccess, planName = ""){
+function updateGateAccess(canAccess, planName = "", options = {}){
 
   gateHasGptAccess = !!canAccess;
   const status = document.getElementById("gateAccessStatus");
   const button = document.getElementById("gateGptButton");
   const plansButton = document.getElementById("gatePlansButton");
+  const trialActive = !!options.trialActive;
+  const trialExpired = !canAccess && !!options.trialExpiresAt;
 
   if(status){
-    status.innerText = canAccess
-      ? "Acceso activo" + (planName ? " - " + planName : "")
-      : "Tu cuenta aun no tiene acceso activo";
+    if(trialActive){
+      status.innerText = "Prueba gratuita de 24 horas disponible";
+    }else if(trialExpired){
+      status.innerText = "Tu prueba gratuita de 24 horas finalizo. Activa Premium para continuar.";
+    }else{
+      status.innerText = canAccess
+        ? "Acceso activo" + (planName ? " - " + planName : "")
+        : "Tu cuenta aun no tiene acceso activo";
+    }
   }
 
   if(button){
-    button.innerText = canAccess ? "Ingresar a LitigARG" : "Activar acceso";
+    button.innerText = trialActive
+      ? "Iniciar prueba gratuita de 24 horas"
+      : canAccess
+        ? "Ingresar a LitigARG"
+        : "Activar acceso";
   }
 
   if(plansButton){
@@ -3295,12 +3309,17 @@ function updateIndependentAppEntry(){
 function updateGptAccessButton(canAccess){
 
   const button = document.getElementById("gptAccessButton");
+  const trialActive = !!profileState.trialActive && !canAccess;
+  const hasAccess = !!canAccess || !!profileState.trialActive;
   if(!button) return;
 
-  button.style.display = canAccess ? "block" : "none";
+  button.style.display = hasAccess ? "block" : "none";
   button.disabled = false;
-  button.innerText = "Ingresar a LitigARG";
-  updateGateAccess(canAccess, profileState.plan);
+  button.innerText = trialActive ? "Iniciar prueba gratuita de 24 horas" : "Ingresar a LitigARG";
+  updateGateAccess(hasAccess, profileState.plan, {
+    trialActive,
+    trialExpiresAt: profileState.trialExpiresAt
+  });
 
 }
 
@@ -3379,6 +3398,7 @@ async function loadProfile(){
     const username = data.user?.username || "";
     const subscription = data.subscription;
     const planInfo = data.plan;
+    const trial = data.trial || {};
     const planName = subscription
       ? formatPlanName(subscription.plan)
       : planInfo?.name || "Experiencia gratuita";
@@ -3388,8 +3408,10 @@ async function loadProfile(){
       username: getDisplayName(username,email),
       plan: planName,
       expiresAt: subscription?.expiresAt || null,
+      trialActive: !!trial.active,
+      trialExpiresAt: trial.expiresAt || null,
       canManageLibrary: profileState.canManageLibrary,
-      hasGptAccess: !!subscription || planInfo?.id === "admin",
+      hasGptAccess: !!subscription || planInfo?.id === "admin" || !!trial.active,
       canEnterIndependentApp: planInfo?.id === "admin"
     };
 
@@ -3412,13 +3434,16 @@ async function loadProfile(){
 
     }
 
-    document.getElementById("accountPlan").innerText = "Experiencia gratuita";
-    document.getElementById("accountExpiry").innerText =
-      "Plan: experiencia gratuita\nSin vencimiento activo";
+    document.getElementById("accountPlan").innerText = trial.active ? "Prueba gratuita 24 horas" : "Experiencia gratuita";
+    document.getElementById("accountExpiry").innerText = trial.active
+      ? "Prueba gratuita activa\nVence: " + formatDate(trial.expiresAt)
+      : trial.expiresAt
+        ? "Prueba gratuita finalizada\nActiva Premium para continuar"
+        : "Plan: experiencia gratuita\nSin vencimiento activo";
     updatePremiumButtons(false);
     updateGptAccessButton(planInfo?.id === "admin");
     updateIndependentAppEntry();
-    showFreeNoticeIfNeeded();
+    if(!trial.active) showFreeNoticeIfNeeded();
 	
 	  }catch(error){
 

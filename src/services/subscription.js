@@ -2,6 +2,40 @@ import { readDB, writeDB } from "../db/db.js";
 import { isAdminUserId } from "./adminAccess.js";
 import { getPlanConfig, isPaidPlan, normalizePlanId } from "./plans.js";
 
+const GPT_TRIAL_HOURS = 24;
+const GPT_TRIAL_MS = GPT_TRIAL_HOURS * 60 * 60 * 1000;
+
+function getUserCreatedAt(user) {
+  const value = user?.created_at || user?.createdAt || user?.termsAcceptedAt || user?.terms_accepted_at;
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+export async function getGptTrialAccess(userId) {
+  const db = await readDB();
+  const user = (db.users || []).find((item) => Number(item.id) === Number(userId));
+  const createdAt = getUserCreatedAt(user);
+
+  if (!createdAt) {
+    return { active: false, expiresAt: null };
+  }
+
+  const expiresAt = new Date(createdAt.getTime() + GPT_TRIAL_MS);
+
+  return {
+    active: expiresAt > new Date(),
+    expiresAt: expiresAt.toISOString()
+  };
+}
+
+export async function hasGptAccess(userId) {
+  if (await isAdminUserId(userId)) return true;
+  if (await getActiveSubscription(userId)) return true;
+
+  const trial = await getGptTrialAccess(userId);
+  return trial.active;
+}
+
 export function getPlanDays(plan) {
   return 30;
 }
