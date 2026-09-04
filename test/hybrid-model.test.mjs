@@ -26,7 +26,10 @@ test("enruta texto documental, imagenes y PDF escaneados al modelo avanzado", ()
 test("el protocolo impide conclusiones penales automaticas", () => {
   assert.match(openaiSource, /hipotesis plausibles/i);
   assert.match(openaiSource, /hurto y abuso de confianza/i);
+  assert.match(openaiSource, /falta de prueba sobre entrega previa no demuestra/i);
+  assert.match(openaiSource, /no elijas hurto como hipotesis principal/i);
   assert.match(openaiSource, /controversia civil, familiar, posesoria o sucesoral/i);
+  assert.match(openaiSource, /No infieras parentescos/i);
   assert.match(openaiSource, /presuncion de inocencia/i);
   assert.match(openaiSource, /No inventes coautores/i);
   assert.match(openaiSource, /conclusion juridica provisional y condicionada/i);
