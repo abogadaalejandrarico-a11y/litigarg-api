@@ -441,6 +441,68 @@ export async function findRelevantDocuments(query = "", limit = MAX_CONTEXT_CHUN
     .slice(0, limit);
 }
 
+export async function getRequiredLibraryRules(maxChars = 100000) {
+  let documents = [];
+
+  if (isPostgresEnabled()) {
+    documents = await withDBClient(async client => {
+      const result = await client.query(`
+        SELECT dl.id, dl.title, dl.file_name, dl.category, dc.chunk_index, dc.content
+        FROM document_library dl
+        JOIN document_chunks dc ON dc.document_id = dl.id
+        WHERE LOWER(COALESCE(dl.category, '')) LIKE '%regla%'
+        ORDER BY dl.created_at ASC, dc.chunk_index ASC
+      `);
+      return result.rows.map(row => ({
+        id: row.id,
+        title: row.title,
+        fileName: row.file_name,
+        chunkIndex: row.chunk_index,
+        content: row.content
+      }));
+    });
+  } else {
+    const db = await readDB();
+    const rules = (db.documentLibrary || []).filter(document =>
+      normalizeText(document.category).includes("regla")
+    );
+    documents = (db.documentChunks || []).flatMap(chunk => {
+      const document = rules.find(item => String(item.id) === String(chunk.documentId));
+      return document ? [{
+        id: document.id,
+        title: document.title,
+        fileName: document.fileName,
+        chunkIndex: chunk.chunkIndex,
+        content: chunk.content
+      }] : [];
+    }).sort((a, b) => Number(a.chunkIndex || 0) - Number(b.chunkIndex || 0));
+  }
+
+  const sources = [...new Map(documents.map(document => [String(document.id), {
+    id: document.id,
+    title: document.title || document.fileName || "Regla interna",
+    sourceType: "internal_rule",
+    category: "reglas"
+  }])).values()];
+  let usedChars = 0;
+  const content = [];
+  for (const document of documents) {
+    const remaining = maxChars - usedChars;
+    if (remaining <= 0) break;
+    const chunk = String(document.content || "").slice(0, remaining);
+    if (!chunk) continue;
+    content.push(`[REGLA: ${document.title || document.fileName}]\n${chunk}`);
+    usedChars += chunk.length;
+  }
+
+  return {
+    context: content.length
+      ? `REGLAS INTERNAS OBLIGATORIAS DE LITIGARG\n${content.join("\n\n")}\n\nAplica estas reglas en toda la respuesta. Si entran en conflicto con la ley vigente o una fuente oficial, prevalece la fuente oficial y explica la cautela.`
+      : "",
+    sources
+  };
+}
+
 export function formatDocumentContext(chunks = []) {
   if (!chunks.length) return "";
 

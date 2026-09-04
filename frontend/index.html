@@ -4283,6 +4283,15 @@ async function login(){
 
 // SEND MESSAGE
 
+function startLitigargProgress(element, steps){
+  let index = 0;
+  element.innerText = steps[index];
+  return setInterval(() => {
+    index = Math.min(index + 1, steps.length - 1);
+    element.innerText = steps[index];
+  }, 4500);
+}
+
 async function sendMessage(){
 
   const input = document.getElementById("msgInput");
@@ -4323,9 +4332,16 @@ if(!currentConversation){
     .getElementById("messages")
     .appendChild(typing);
 
-  typing.scrollIntoView({
+typing.scrollIntoView({
     behavior:"smooth"
 });
+
+  const progressTimer = startLitigargProgress(typing, [
+    "Cargando reglas obligatorias de LitigARG...",
+    "Buscando documentos pertinentes en la Biblioteca...",
+    "Verificando fuentes jurídicas oficiales...",
+    "Preparando la respuesta jurídica..."
+  ]);
 
   try{
 
@@ -4345,6 +4361,7 @@ if(!currentConversation){
     );
 
 	    const data = await res.json();
+      clearInterval(progressTimer);
 
       updateUsageStatus(data.usage);
 	
@@ -4369,7 +4386,7 @@ addMessageToConversation(
   "bot",
   {
     animate:true,
-    sources:data.sources || [],
+    sources:[...(data.internalSources || []), ...(data.sources || [])],
     feedback:{
       chatId:conversationId,
       userMessage:text,
@@ -4384,6 +4401,7 @@ addMessageToConversation(
 
     document.getElementById("typing")?.remove();
 
+    clearInterval(progressTimer);
     addMessageToConversation(conversationId,"Error de conexión con LitigARG","bot",{animate:true});
 
   }
@@ -4439,6 +4457,14 @@ async function analyzeSelectedFile(instructionText = ""){
     behavior:"smooth"
   });
 
+  const progressTimer = startLitigargProgress(typing, [
+    "Leyendo el documento completo...",
+    "Cargando reglas obligatorias de LitigARG...",
+    "Buscando apoyo en la Biblioteca...",
+    "Verificando legislación y jurisprudencia...",
+    "Preparando el análisis jurídico..."
+  ]);
+
   try{
 
     const formData = new FormData();
@@ -4463,6 +4489,7 @@ async function analyzeSelectedFile(instructionText = ""){
     );
 
 	    const data = await res.json();
+      clearInterval(progressTimer);
 
       updateUsageStatus(data.usage);
 	
@@ -4494,12 +4521,15 @@ async function analyzeSelectedFile(instructionText = ""){
         },
         sources:[
           ...(data.fileName ? [{ title:data.fileName, sourceType:"uploaded_document" }] : []),
+          ...(data.internalSources || []),
           ...(data.sources || [])
         ]
       }
     );
 
   }catch(error){
+
+    clearInterval(progressTimer);
 
     console.error(error);
 
@@ -4786,9 +4816,13 @@ function buildSourcesHtml(sources){
       const topics = source.topics && source.topics.length
         ? '<span class="source-topics">' + escapeHtml(source.topics.join(" · ")) + '</span>'
         : "";
-      const label = source.corporation
-        ? source.corporation + ": " + title
-        : "Documento aportado: " + title;
+      const label = source.sourceType === "internal_rule"
+        ? "Regla obligatoria aplicada: " + title
+        : source.sourceType === "internal_library"
+          ? "Biblioteca consultada: " + title
+          : source.corporation
+            ? source.corporation + ": " + title
+            : "Documento aportado: " + title;
 
       if(source.url){
         const officialLinks = [

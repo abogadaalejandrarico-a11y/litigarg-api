@@ -8,7 +8,8 @@ import { extractDocumentText, hasMeaningfulDocumentText, isSupportedAudioFile, i
 import { generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, generarRespuestaLegalConTextoDocumento, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
-  formatDocumentContext
+  formatDocumentContext,
+  getRequiredLibraryRules
 } from "../services/documentLibrary.js";
 import {
   addInlineSourceLinks,
@@ -237,17 +238,36 @@ async function getLibraryContext(text) {
     const formatted = formatDocumentContext(chunks);
 
     if (formatted) {
-      return [
-        "Revision de biblioteca interna realizada antes de acudir a fuentes externas. Fragmentos internos pertinentes encontrados:",
-        formatted
-      ].join("\n\n");
+      return {
+        context: ["Revision de biblioteca interna realizada antes de acudir a fuentes externas. Fragmentos internos pertinentes encontrados:", formatted].join("\n\n"),
+        sources: [...new Map(chunks.map(chunk => [String(chunk.documentId), {
+          id: chunk.documentId,
+          title: chunk.title || "Documento interno",
+          sourceType: "internal_library",
+          category: chunk.category || "biblioteca",
+          topics: chunk.topics || []
+        }])).values()]
+      };
     }
 
-    return "Revision de biblioteca interna realizada antes de acudir a fuentes externas: no se encontraron fragmentos internos suficientemente pertinentes para esta consulta. Debes decirlo brevemente si explicas que buscaste, y continuar con fuentes oficiales externas sin inventar material interno.";
+    return { context: "Revision de biblioteca interna realizada antes de acudir a fuentes externas: no se encontraron fragmentos internos suficientemente pertinentes para esta consulta.", sources: [] };
   } catch (error) {
     console.error("ERROR BUSCANDO BIBLIOTECA INTERNA:", error);
-    return "Revision de biblioteca interna intentada antes de acudir a fuentes externas, pero hubo un error consultandola. No inventes material interno; continua con fuentes oficiales verificables y advierte la limitacion solo si es necesario.";
+    return { context: "Revision de biblioteca interna intentada, pero hubo un error consultandola. No inventes material interno.", sources: [] };
   }
+}
+
+async function buildInternalKnowledgeContext(query) {
+  const [rules, library] = await Promise.all([
+    getRequiredLibraryRules(),
+    getLibraryContext(buildLibrarySearchQuery(query))
+  ]);
+  return {
+    context: [rules.context, library.context].filter(Boolean).join("\n\n"),
+    sources: [...rules.sources, ...library.sources.filter(source =>
+      !rules.sources.some(rule => String(rule.id) === String(source.id))
+    )]
+  };
 }
 
 async function getLearningContext(text) {
@@ -288,7 +308,8 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     }
 
     const userName = await getUserName(userId);
-    const libraryContext = await getLibraryContext(buildLibrarySearchQuery(message));
+    const internalKnowledge = await buildInternalKnowledgeContext(message);
+    const libraryContext = internalKnowledge.context;
     const libraryLegalReferences = extractLibraryLegalReferences(libraryContext);
     const officialSourceQuery = libraryLegalReferences
       ? message + "\n\nReferencias detectadas en biblioteca interna para verificar en fuentes oficiales:\n" + libraryLegalReferences
@@ -317,6 +338,7 @@ router.post("/chat", authMiddlewares, async (req, res) => {
     res.json({
       answer: linkedAnswer,
       sources,
+      internalSources: internalKnowledge.sources,
       isPremium: access.plan.id !== "free",
       plan: access.plan,
       usage: updatedUsage,
@@ -481,7 +503,8 @@ Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue 
       }
     }
 
-    const libraryContext = await getLibraryContext(buildLibrarySearchQuery(sourceQuery));
+    const internalKnowledge = await buildInternalKnowledgeContext(sourceQuery);
+    const libraryContext = internalKnowledge.context;
     const libraryLegalReferences = extractLibraryLegalReferences(libraryContext);
     const officialSourceQuery = libraryLegalReferences
       ? sourceQuery + "\n\nReferencias detectadas en biblioteca interna para verificar en fuentes oficiales:\n" + libraryLegalReferences
@@ -522,6 +545,7 @@ Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue 
       answer: linkedAnswer,
       fileName: req.file.originalname,
       sources,
+      internalSources: internalKnowledge.sources,
       isPremium: access.plan.id !== "free",
       plan: access.plan,
       usage: updatedUsage,
