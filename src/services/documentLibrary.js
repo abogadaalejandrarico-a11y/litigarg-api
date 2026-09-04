@@ -38,7 +38,9 @@ const TOPIC_RULES = [
 const STOP_WORDS = new Set([
   "para", "como", "cual", "cuando", "donde", "sobre", "entre", "desde", "porque",
   "este", "esta", "estos", "estas", "tengo", "necesito", "hacer", "analiza", "del",
-  "las", "los", "una", "uno", "con", "sin", "que", "por", "ante"
+  "las", "los", "una", "uno", "con", "sin", "que", "por", "ante", "documento",
+  "archivo", "denuncia", "delito", "indica", "indicame", "configura", "segun", "hechos",
+  "juridicamente", "relevantes", "escaneado", "lectura", "visual", "paginas", "pdf"
 ]);
 
 function normalizeText(value = "") {
@@ -49,10 +51,10 @@ function normalizeText(value = "") {
 }
 
 function extractTerms(query = "") {
-  return normalizeText(query)
+  return [...new Set(normalizeText(query)
+    .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .map(term => term.replace(/[^a-z0-9]/g, ""))
-    .filter(term => term.length > 3 && !STOP_WORDS.has(term));
+    .filter(term => term.length > 3 && !STOP_WORDS.has(term)))];
 }
 
 function classifyTopics(text = "") {
@@ -242,6 +244,15 @@ function scoreChunk(chunk, query = "") {
   return score;
 }
 
+function hasSufficientRelevance(chunk, query = "") {
+  const minimumScore = extractTerms(query).length <= 2 ? 2 : 4;
+  return Number(chunk.relevanceScore || 0) >= minimumScore;
+}
+
+export function getLibrarySearchTerms(query = "") {
+  return extractTerms(query);
+}
+
 export async function saveLibraryDocument({ file, text, userId, title, author, category, tags, description }) {
   const cleanTitle = (title || file.originalname || "Documento de biblioteca").trim();
   const cleanFileName = (file.originalname || cleanTitle).trim();
@@ -387,7 +398,8 @@ export async function findRelevantDocuments(query = "", limit = MAX_CONTEXT_CHUN
             dc.topics
           FROM document_chunks dc
           JOIN document_library dl ON dl.id = dc.document_id
-          WHERE ${likeClauses}
+          WHERE LOWER(COALESCE(dl.category, '')) NOT LIKE '%regla%'
+            AND (${likeClauses})
           ORDER BY dl.updated_at DESC, dc.chunk_index ASC
           LIMIT 40
         `,
@@ -409,14 +421,16 @@ export async function findRelevantDocuments(query = "", limit = MAX_CONTEXT_CHUN
           ...chunk,
           relevanceScore: scoreChunk(chunk, query)
         }))
-        .filter(chunk => chunk.relevanceScore > 0)
+        .filter(chunk => hasSufficientRelevance(chunk, query))
         .sort((a, b) => b.relevanceScore - a.relevanceScore)
         .slice(0, limit);
     });
   }
 
   const db = await readDB();
-  const documents = db.documentLibrary || [];
+  const documents = (db.documentLibrary || []).filter(document =>
+    !normalizeText(document.category).includes("regla")
+  );
 
   return (db.documentChunks || [])
     .map(chunk => {
@@ -436,7 +450,7 @@ export async function findRelevantDocuments(query = "", limit = MAX_CONTEXT_CHUN
       ...chunk,
       relevanceScore: scoreChunk(chunk, query)
     }))
-    .filter(chunk => chunk.relevanceScore > 0)
+    .filter(chunk => hasSufficientRelevance(chunk, query))
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, limit);
 }
