@@ -226,6 +226,30 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
   return completion.choices[0].message.content;
 }
 
+export async function reconstruirRespuestaConFuentesVerificadas(mensaje, borrador, options = {}) {
+  const systemPrompt = await buildSystemPrompt(options);
+  const completion = await client.chat.completions.create({
+    model: GENERAL_MODEL,
+    messages: [
+      {
+        role: "system",
+        content: `${systemPrompt}\n\nCONTROL DE CALIDAD FINAL: debes reconstruir una respuesta completa y autosuficiente. No conserves encabezados que queden sin contenido. No anuncies que presentaras sentencias si no existe ninguna providencia verificada en las fuentes. Si faltan providencias verificadas, explica con claridad el resultado de la busqueda y ofrece un analisis normativo y doctrinal util, distinguiendolo de una linea jurisprudencial. Nunca repitas una cita eliminada.`
+      },
+      {
+        role: "user",
+        content: [
+          `CONSULTA ORIGINAL:\n${mensaje}`,
+          `BORRADOR RECHAZADO POR CONTENER CITAS NO VERIFICADAS:\n${borrador}`,
+          "Reescribe desde cero la respuesta. Conserva solo afirmaciones juridicas sustentables y entrega una conclusion util, honesta y bien estructurada."
+        ].join("\n\n")
+      }
+    ],
+    max_tokens: 5000
+  });
+
+  return completion.choices[0].message.content || "";
+}
+
 export async function generarRespuestaLegalConImagen(file, mensaje, options = {}) {
   const systemPrompt = await buildSystemPrompt(options);
   const mimeType = file.mimetype || "image/png";

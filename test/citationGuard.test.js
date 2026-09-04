@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   enforceVerifiedJudicialCitations,
-  findUnsupportedJudicialCitations
+  findUnsupportedJudicialCitations,
+  getBreachOfTrustCandidates
 } from "../src/services/jurisprudenceSearch.js";
 
 const verifiedSources = [{
@@ -39,4 +40,12 @@ test("detecta y omite bloques con providencias no verificadas", () => {
 test("no confunde leyes con providencias judiciales", () => {
   const answer = "Son relevantes los articulos 239 y 249 de la Ley 599 de 2000.";
   assert.deepEqual(findUnsupportedJudicialCitations(answer, []), []);
+});
+
+test("mantiene fuentes oficiales controladas para abuso de confianza", () => {
+  const sources = getBreachOfTrustCandidates("linea jurisprudencial del abuso de confianza");
+  assert.equal(sources.length, 2);
+  assert.ok(sources.every(source => source.official && source.citationVerified));
+  assert.ok(sources.some(source => source.title.includes("SP1147-2022")));
+  assert.ok(sources.some(source => source.title.includes("59422")));
 });

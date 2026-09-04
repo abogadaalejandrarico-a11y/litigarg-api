@@ -5,7 +5,7 @@ import { getUserPlan } from "../services/subscription.js";
 import { getPlanAudioMaxBytes, getPlanVideoMaxBytes } from "../services/plans.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
 import { extractDocumentText, hasMeaningfulDocumentText, isSupportedAudioFile, isSupportedImageFile, isSupportedVideoFile } from "../services/documentText.js";
-import { extraerContextoJuridicoParaBusqueda, generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, generarRespuestaLegalConTextoDocumento, transcribirAudio } from "../services/openai.js";
+import { extraerContextoJuridicoParaBusqueda, generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, generarRespuestaLegalConTextoDocumento, reconstruirRespuestaConFuentesVerificadas, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
   formatDocumentContext,
@@ -14,6 +14,7 @@ import {
 import {
   addInlineSourceLinks,
   enforceVerifiedJudicialCitations,
+  findUnsupportedJudicialCitations,
   formatSourcesForPrompt,
   searchJurisprudence,
   shouldSearchJurisprudence
@@ -37,6 +38,17 @@ function buildSourcesContext(sources, query, searchNeeded) {
 
   if (!requested || verifiedDecisions >= requested) return base;
   return `${base}\n\nCONTROL OBLIGATORIO: el usuario solicito ${requested} providencia(s), pero solo hay ${verifiedDecisions} providencia(s) verificadas y pertinentes en las fuentes admitidas. No completes la cantidad con memoria ni con referencias aproximadas. Indica expresamente la insuficiencia y entrega solo las verificadas.`.trim();
+}
+
+async function finalizeVerifiedAnswer(query, answer, sources, answerOptions) {
+  let finalAnswer = String(answer || "");
+  const unsupported = findUnsupportedJudicialCitations(finalAnswer, sources);
+
+  if (unsupported.length) {
+    finalAnswer = await reconstruirRespuestaConFuentesVerificadas(query, finalAnswer, answerOptions);
+  }
+
+  return addInlineSourceLinks(enforceVerifiedJudicialCitations(finalAnswer, sources), sources);
 }
 import {
   findRelevantJurisprudence,
@@ -349,7 +361,14 @@ router.post("/chat", authMiddlewares, async (req, res) => {
       responseGuidance: buildResponseGuidance(message),
       sourcesContext: buildSourcesContext(sources, message, sourceSearchNeeded)
     });
-    const linkedAnswer = addInlineSourceLinks(enforceVerifiedJudicialCitations(respuesta, sources), sources);
+    const linkedAnswer = await finalizeVerifiedAnswer(message, respuesta, sources, {
+      userName,
+      conversationContext,
+      libraryContext,
+      learningContext,
+      responseGuidance: buildResponseGuidance(message),
+      sourcesContext: buildSourcesContext(sources, message, sourceSearchNeeded)
+    });
     const updatedUsage = await finishUsage(userId, "message");
 
     res.json({
@@ -559,7 +578,7 @@ Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue 
       respuesta = await generarRespuestaLegal(message, answerOptions);
     }
 
-    const linkedAnswer = addInlineSourceLinks(enforceVerifiedJudicialCitations(respuesta, sources), sources);
+    const linkedAnswer = await finalizeVerifiedAnswer(prompt, respuesta, sources, answerOptions);
     const updatedUsage = await finishUsage(userId, accessKind);
 
     res.json({

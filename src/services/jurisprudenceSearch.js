@@ -24,13 +24,23 @@ const COLOMBIAN_LEGAL_REPOSITORIES = [
 
 const PENAL_LAW_SOURCES = [
   {
+    key: "ley_599_art_249",
+    title: "Ley 599 de 2000, articulo 249 - Abuso de confianza",
+    url: `${SENADO_BASEDOC_URL}/ley_0599_2000_pr009.html#249`,
+    corporation: "Secretaria del Senado",
+    room: "Normativa penal sustancial",
+    year: 2000,
+    keywords: ["abuso de confianza", "apropiacion", "titulo no traslativo de dominio", "entrega previa"],
+    extract: "El articulo 249 exige apropiacion, en provecho propio o ajeno, de una cosa mueble ajena previamente confiada o entregada mediante un titulo que no transfiera el dominio."
+  },
+  {
     key: "ley_599",
     title: "Ley 599 de 2000 - Codigo Penal",
     url: `${SENADO_BASEDOC_URL}/ley_0599_2000.html`,
     corporation: "Secretaria del Senado",
     room: "Normativa penal sustancial",
     year: 2000,
-    keywords: ["ley 599", "codigo penal", "delito", "tipicidad", "pena", "amenaza", "homicidio", "hurto", "lesiones", "intimidacion", "arma de fuego"]
+    keywords: ["ley 599", "codigo penal", "delito", "tipicidad", "pena", "amenaza", "homicidio", "hurto", "abuso de confianza", "apropiacion", "titulo no traslativo de dominio", "lesiones", "intimidacion", "arma de fuego"]
   },
   {
     key: "ley_600",
@@ -123,10 +133,19 @@ const STOP_WORDS = new Set([
   "acerca", "ademas", "ante", "como", "con", "cual", "del", "desde",
   "el", "en", "entre", "esa", "ese", "esta", "este", "hacer", "jurisprudencia",
   "las", "los", "me", "necesito", "para", "por", "proceso", "que", "relacion",
-  "sentencia", "sirva", "solicitud", "sustentar", "tengo", "una", "uno"
+  "dame", "delito", "linea", "sentencia", "sirva", "solicitud", "sustentar", "tengo", "una", "uno"
 ]);
 
 const LEGAL_SYNONYMS = [
+  {
+    when: ["abuso", "confianza"],
+    searches: [
+      "abuso de confianza apropiacion titulo no traslativo de dominio",
+      "abuso de confianza entrega previa bien mueble ajeno",
+      "diferencia hurto abuso de confianza disponibilidad material",
+      "articulo 249 codigo penal abuso de confianza"
+    ]
+  },
   {
     when: ["devolucion", "arma"],
     searches: [
@@ -269,7 +288,8 @@ function getQueryIntent(query = "") {
     mentionsThreatOrIntimidation: /(intimidacion|amenaza|amenazas|constreñimiento|violencia)/.test(normalized),
     mentionsDetentionMeasure: /(medida de aseguramiento|detencion preventiva|intramural|peligro para la comunidad)/.test(normalized),
     mentionsDocumentaryEvidence: /(prueba documental|documento|estipulacion|incorporacion|lectura)/.test(normalized),
-    mentionsSubstantiveCriminalLaw: /(codigo penal|ley 599|delito|tipicidad|pena|punible|arma de fuego|amenaza|intimidacion|lesiones|homicidio|hurto)/.test(normalized),
+    mentionsSubstantiveCriminalLaw: /(codigo penal|ley 599|delito|tipicidad|pena|punible|arma de fuego|amenaza|intimidacion|lesiones|homicidio|hurto|abuso de confianza|apropiacion)/.test(normalized),
+    mentionsBreachOfTrust: /(abuso de confianza|titulo no traslativo de dominio|entrega previa)/.test(normalized),
     mentionsProceduralLaw: /(ley 906|codigo de procedimiento penal|audiencia|imputacion|acusacion|juicio oral|control de garantias|preparatoria|apelacion|casacion)/.test(normalized),
     mentionsLaw600: /(ley 600|sistema mixto|instruccion penal)/.test(normalized),
     mentionsAbbreviatedProcedure: /(ley 1826|procedimiento especial abreviado|acusador privado|querella|querellable|articulo 563)/.test(normalized),
@@ -318,7 +338,8 @@ function scoreSource(source, originalQuery = "") {
     source.title,
     source.extract,
     source.snippet,
-    source.fileName
+    source.fileName,
+    ...(source.keywords || [])
   ].filter(Boolean).join(" "));
 
   let score = 0;
@@ -357,6 +378,11 @@ function scoreSource(source, originalQuery = "") {
     score += 5;
   }
 
+  if (intent.mentionsBreachOfTrust) {
+    if (/(abuso de confianza|apropiacion|titulo no traslativo|entrega previa|disponibilidad material)/.test(haystack)) score += 8;
+    else score -= 6;
+  }
+
   if (source.year && Number(source.year) >= 2020) score += 1;
   if (source.title?.includes("SP")) score += 1;
   if (source.extractVerified || source.sourceType === "law") score += 2;
@@ -375,7 +401,8 @@ function hasStrongIntentMatch(source, originalQuery = "") {
     source.title,
     source.extract,
     source.snippet,
-    source.fileName
+    source.fileName,
+    ...(source.keywords || [])
   ].filter(Boolean).join(" "));
 
   if (source.sourceType === "law") {
@@ -404,6 +431,10 @@ function hasStrongIntentMatch(source, originalQuery = "") {
     return hasDocumentTopic && hasTrialUseTopic;
   }
 
+  if (intent.mentionsBreachOfTrust) {
+    return /(abuso de confianza|apropiacion|titulo no traslativo|entrega previa|disponibilidad material)/.test(haystack);
+  }
+
   if (intent.mentionsOrganizedCrime) {
     return /(ley 1908|organizaciones criminales|grupo armado organizado|gao|delincuencia organizada|sometimiento)/.test(haystack);
   }
@@ -422,7 +453,8 @@ function isSourcePertinent(source, originalQuery = "") {
     source.title,
     source.extract,
     source.snippet,
-    source.fileName
+    source.fileName,
+    ...(source.keywords || [])
   ].filter(Boolean).join(" "));
 
   if (source.sourceType === "jurisprudence" && source.readStatus && source.readStatus !== "read" && !source.citationVerified) {
@@ -930,13 +962,47 @@ function getConstitutionalLineCandidates(query = "") {
   ];
 }
 
+export function getBreachOfTrustCandidates(query = "") {
+  if (!getQueryIntent(query).mentionsBreachOfTrust) return [];
+
+  return [
+    {
+      title: "Corte Suprema de Justicia, Sala Penal, SP1147-2022, radicado 60411",
+      url: "https://cortesuprema.gov.co/corte/wp-content/uploads/relatorias/pe/b1may2022/SP1147-2022%2860411%29.pdf",
+      corporation: "Corte Suprema de Justicia",
+      room: "Sala de Casacion Penal",
+      year: 2022,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Decision sobre abuso de confianza, administracion de dineros y alcance del titulo no traslativo de dominio como forma de mera tenencia."
+    },
+    {
+      title: "Corte Suprema de Justicia, Sala Penal, casacion 59422, decision del 27 de agosto de 2021",
+      url: "https://cortesuprema.gov.co/corte/wp-content/uploads/not/penal21/avisos/59422casacion27082021.pdf",
+      corporation: "Corte Suprema de Justicia",
+      room: "Sala de Casacion Penal",
+      year: 2021,
+      sourceType: "jurisprudence",
+      verified: true,
+      official: true,
+      citationVerified: true,
+      extract: "",
+      snippet: "Decision sobre los elementos del abuso de confianza y el momento de consumacion cuando se exterioriza por primera vez la apropiacion."
+    }
+  ];
+}
+
 async function searchCorteConstitucional(query) {
   const references = [...new Set(cleanText(query).match(/\b(?:SU|T|C)[-\s]?\d{1,4}[-\s]?\d{2,4}\b/gi) || [])];
   const sources = [];
   const lineCandidates = getConstitutionalLineCandidates(query);
   const spoaCandidates = getSpoaStructuralCandidates(query);
+  const breachOfTrustCandidates = getBreachOfTrustCandidates(query);
 
-  sources.push(...lineCandidates, ...spoaCandidates);
+  sources.push(...lineCandidates, ...spoaCandidates, ...breachOfTrustCandidates);
 
   for (const reference of references.slice(0, 4)) {
     const candidates = getConstitutionalCandidates(reference);
@@ -965,7 +1031,9 @@ function getStatutorySources(query = "") {
   const intent = getQueryIntent(query);
   const sources = PENAL_LAW_SOURCES
     .filter(source =>
-      source.key === "ley_906_art_88"
+      source.key === "ley_599_art_249"
+        ? intent.mentionsBreachOfTrust
+        : source.key === "ley_906_art_88"
         ? normalized.includes("devolucion") && /(arma|bien|bienes|incaut|ocupad|comiso)/.test(normalized)
         : source.key === "ley_599"
           ? intent.mentionsSubstantiveCriminalLaw
