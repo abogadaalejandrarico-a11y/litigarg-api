@@ -13,8 +13,10 @@ import {
 } from "../services/documentLibrary.js";
 import {
   addInlineSourceLinks,
+  buildVerifiedSourcesFallback,
   enforceVerifiedJudicialCitations,
   findUnsupportedJudicialCitations,
+  findUnsupportedStatutoryReferences,
   formatSourcesForPrompt,
   searchJurisprudence,
   shouldSearchJurisprudence
@@ -42,10 +44,30 @@ function buildSourcesContext(sources, query, searchNeeded) {
 
 async function finalizeVerifiedAnswer(query, answer, sources, answerOptions) {
   let finalAnswer = String(answer || "");
-  const unsupported = findUnsupportedJudicialCitations(finalAnswer, sources);
+  let unsupported = [
+    ...findUnsupportedJudicialCitations(finalAnswer, sources),
+    ...findUnsupportedStatutoryReferences(finalAnswer, sources)
+  ];
 
   if (unsupported.length) {
     finalAnswer = await reconstruirRespuestaConFuentesVerificadas(query, finalAnswer, answerOptions);
+    unsupported = [
+      ...findUnsupportedJudicialCitations(finalAnswer, sources),
+      ...findUnsupportedStatutoryReferences(finalAnswer, sources)
+    ];
+  }
+
+  const asksForLine = /linea\s+(?:jurisprudencial|de jurisprudencia)/i.test(query);
+  const verifiedDecisions = sources.filter(source => source.sourceType === "jurisprudence");
+  const citedDecisionCount = verifiedDecisions.filter(source => {
+    const identifiers = `${source.title || ""}`.match(/(?:SP|AP|SC|STC|SL|SU|C|T)[-\s]?\d{2,7}[-\s]\d{2,4}|\b\d{5,8}\b/gi) || [];
+    return identifiers.some(identifier => finalAnswer.toLowerCase().includes(identifier.toLowerCase()));
+  }).length;
+  const structurallyWeak = finalAnswer.trim().length < 500 ||
+    (asksForLine && verifiedDecisions.length && citedDecisionCount < Math.min(2, verifiedDecisions.length));
+
+  if (unsupported.length || structurallyWeak) {
+    finalAnswer = buildVerifiedSourcesFallback(query, sources);
   }
 
   return addInlineSourceLinks(enforceVerifiedJudicialCitations(finalAnswer, sources), sources);

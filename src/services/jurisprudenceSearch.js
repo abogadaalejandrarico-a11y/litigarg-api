@@ -1361,6 +1361,52 @@ export function findUnsupportedJudicialCitations(answer = "", sources = []) {
   });
 }
 
+export function findUnsupportedStatutoryReferences(answer = "", sources = []) {
+  const specificLawSources = (Array.isArray(sources) ? sources : [])
+    .filter(source => source?.sourceType === "law" && /art(?:iculo|ículo)\s+\d+/i.test(`${source.title || ""} ${source.extract || ""}`));
+  if (!specificLawSources.length) return [];
+
+  const allowedArticles = new Set(specificLawSources.flatMap(source =>
+    [...`${source.title || ""} ${source.extract || ""}`.matchAll(/art(?:iculo|ículo)\s+(\d+)/gi)].map(match => match[1])
+  ));
+  const references = [...String(answer || "").matchAll(/art(?:iculo|ículo)\s+(\d+)(?:\s+(?:del|de la)\s+(?:codigo penal|ley\s+\d+))?/gi)];
+
+  return references
+    .filter(match => /codigo penal|ley\s+\d+/i.test(match[0]) && !allowedArticles.has(match[1]))
+    .map(match => match[0]);
+}
+
+export function buildVerifiedSourcesFallback(query = "", sources = []) {
+  const usable = Array.isArray(sources) ? sources : [];
+  const specificLaws = usable.filter(source => source.sourceType === "law" && /art(?:iculo|ículo)\s+\d+/i.test(source.title || ""));
+  const decisions = usable
+    .filter(source => source.sourceType === "jurisprudence")
+    .sort((a, b) => Number(a.year || 0) - Number(b.year || 0));
+  const sections = [
+    "## Resultado de la búsqueda",
+    decisions.length
+      ? `Se verificaron ${decisions.length} providencia(s) pertinente(s) en fuentes oficiales. La síntesis siguiente se limita a esas decisiones y no incorpora citas de memoria.`
+      : "No se recuperaron providencias suficientemente verificadas para construir una línea jurisprudencial. Presento únicamente el marco normativo oficial disponible."
+  ];
+
+  if (specificLaws.length) {
+    sections.push("## Marco normativo verificado");
+    specificLaws.forEach(source => {
+      sections.push(`### ${source.title}\n[Fuente oficial](${source.url})\n\n${source.extract || source.snippet || "Fuente normativa oficial consultada."}`);
+    });
+  }
+
+  if (decisions.length) {
+    sections.push("## Decisiones verificadas en orden cronológico");
+    decisions.forEach((source, index) => {
+      sections.push(`### ${index + 1}. ${source.title}\n[Fuente oficial](${source.url})\n\n${source.extract || source.snippet || "La providencia fue verificada, pero no se obtuvo un extracto suficientemente preciso para atribuirle una subregla."}`);
+    });
+    sections.push("## Lectura conjunta", "Estas fuentes permiten estudiar la configuración del tipo penal a partir de la entrega o confianza previa, el título que no transfiere el dominio y la exteriorización del acto de apropiación. La aplicación a un caso concreto exige contrastar esos elementos con los hechos y la prueba disponible.");
+  }
+
+  return sections.join("\n\n");
+}
+
 export function enforceVerifiedJudicialCitations(answer = "", sources = []) {
   const unsupported = findUnsupportedJudicialCitations(answer, sources);
   if (!unsupported.length) return String(answer || "");
