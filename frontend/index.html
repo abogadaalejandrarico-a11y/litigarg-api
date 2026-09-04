@@ -2182,17 +2182,18 @@ body{
 <div class="modal-overlay" id="libraryModal">
   <div class="modal workspace-modal">
     <h3>Biblioteca interna</h3>
-    <p>Sube libros, PDFs y materiales autorizados para que LitigARG los consulte como apoyo interno en sus respuestas.</p>
+    <p>Sube documentos individuales o una carpeta .zip. Cada ZIP se organiza como una colección y conserva la ruta de sus subcarpetas.</p>
 
     <div class="library-form">
       <input
         type="file"
         id="libraryFileInput"
-        accept=".pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        accept=".zip,.pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,application/zip,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       >
-      <input type="text" id="libraryTitle" placeholder="Titulo del material">
+      <input type="text" id="libraryTitle" placeholder="Título del material o nombre de la colección ZIP">
       <input type="text" id="libraryAuthor" placeholder="Autor (ej. W)">
       <select id="libraryCategory">
+        <option value="reglas">Reglas</option>
         <option value="jurisprudencia">Jurisprudencia</option>
         <option value="doctrina">Doctrina</option>
         <option value="articulos">Articulos</option>
@@ -2973,6 +2974,7 @@ function normalizeLibraryCategory(category){
 
   const value = String(category || "otros").toLowerCase();
 
+  if(value.includes("regla")) return "reglas";
   if(value.includes("juris")) return "jurisprudencia";
   if(value.includes("doctr")) return "doctrina";
   if(value.includes("art")) return "articulos";
@@ -2983,6 +2985,7 @@ function normalizeLibraryCategory(category){
 function getLibraryCategoryLabel(category){
 
   const labels = {
+    reglas:"Reglas",
     jurisprudencia:"Jurisprudencia",
     doctrina:"Doctrina",
     articulos:"Articulos",
@@ -3003,7 +3006,7 @@ function renderLibraryDocuments(documents){
     return;
   }
 
-  const categories = ["jurisprudencia", "doctrina", "articulos", "otros"];
+  const categories = ["reglas", "jurisprudencia", "doctrina", "articulos", "otros"];
 
   list.innerHTML = categories.map((category) => {
     const grouped = libraryDocumentsCache.filter((doc) => normalizeLibraryCategory(doc.category) === category);
@@ -3081,7 +3084,7 @@ async function uploadLibraryDocument(){
   const file = fileInput.files[0];
 
   if(!file){
-    setLibraryStatus("Primero selecciona un PDF, Word o TXT.", true);
+    setLibraryStatus("Primero selecciona un documento o una carpeta .zip.", true);
     return;
   }
 
@@ -3093,7 +3096,8 @@ async function uploadLibraryDocument(){
   formData.append("tags", document.getElementById("libraryTags").value.trim());
   formData.append("description", document.getElementById("libraryDescription").value.trim());
 
-  setLibraryStatus("Subiendo y leyendo el documento...");
+  const isZip = file.name.toLowerCase().endsWith(".zip");
+  setLibraryStatus(isZip ? "Subiendo y organizando la colección..." : "Subiendo y leyendo el documento...");
 
   try{
     const res = await fetch(API_URL + "/api/library/upload", {
@@ -3113,10 +3117,17 @@ async function uploadLibraryDocument(){
     fileInput.value = "";
     document.getElementById("libraryTitle").value = "";
     document.getElementById("libraryAuthor").value = "";
-    document.getElementById("libraryCategory").value = "jurisprudencia";
+    document.getElementById("libraryCategory").value = "reglas";
     document.getElementById("libraryTags").value = "";
     document.getElementById("libraryDescription").value = "";
-    setLibraryStatus("Documento guardado. LitigARG ya puede consultarlo internamente.");
+    if(isZip){
+      const imported = Array.isArray(data.imported) ? data.imported.length : 0;
+      const skipped = Array.isArray(data.skipped) ? data.skipped.length : 0;
+      const failed = Array.isArray(data.failed) ? data.failed.length : 0;
+      setLibraryStatus(`Colección organizada: ${imported} documentos importados, ${skipped} omitidos y ${failed} fallidos.`);
+    }else{
+      setLibraryStatus("Documento guardado. LitigARG ya puede consultarlo internamente.");
+    }
     loadLibraryDocuments();
 
   }catch(error){

@@ -5,13 +5,15 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "adm-zip": "^0.6.0",
     "axios": "^1.15.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",

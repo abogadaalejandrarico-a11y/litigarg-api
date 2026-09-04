@@ -3,6 +3,7 @@ import multer from "multer";
 import authMiddlewares from "../middlewares/auth.js";
 import { isAdminUser } from "../services/adminAccess.js";
 import { extractDocumentText, getLibraryTextLimit } from "../services/documentText.js";
+import { readLibraryArchive } from "../services/libraryArchive.js";
 import {
   findRelevantDocuments,
   getLibraryDocument,
@@ -18,7 +19,7 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 25 * 1024 * 1024
+    fileSize: 100 * 1024 * 1024
   }
 });
 
@@ -52,6 +53,49 @@ router.post("/upload", authMiddlewares, requireLibraryAdmin, upload.single("file
   try {
     if (!req.file) {
       return res.status(400).json({ error: "Archivo requerido" });
+    }
+
+    const isZip = req.file.mimetype === "application/zip" || req.file.originalname.toLowerCase().endsWith(".zip");
+
+    if (isZip) {
+      const collection = String(req.body.title || req.file.originalname.replace(/\.zip$/i, "")).trim();
+      const archive = readLibraryArchive(req.file);
+      const imported = [];
+      const failed = [];
+
+      for (const archivedFile of archive.files) {
+        try {
+          const text = await extractDocumentText(archivedFile, { maxChars: getLibraryTextLimit() });
+          const sourcePath = archivedFile.originalname;
+          const baseDescription = String(req.body.description || "").trim();
+          const archiveTags = [req.body.tags, `Colección: ${collection}`].filter(Boolean).join(", ");
+          const document = await saveLibraryDocument({
+            file: archivedFile,
+            text,
+            userId: req.user.userId,
+            title: sourcePath.replace(/\.[^.]+$/, ""),
+            author: req.body.author,
+            category: req.body.category,
+            tags: archiveTags,
+            description: [`Colección: ${collection}. Ruta: ${sourcePath}.`, baseDescription].filter(Boolean).join(" ")
+          });
+          imported.push(document);
+        } catch (error) {
+          failed.push({ path: archivedFile.originalname, reason: error.message || "no se pudo importar" });
+        }
+      }
+
+      return res.json({
+        message: `Colección ${collection} procesada`,
+        collection,
+        imported,
+        skipped: archive.skipped,
+        failed
+      });
+    }
+
+    if (req.file.size > 25 * 1024 * 1024) {
+      return res.status(400).json({ error: "Los documentos individuales no pueden superar 25 MB." });
     }
 
     const text = await extractDocumentText(req.file, {
