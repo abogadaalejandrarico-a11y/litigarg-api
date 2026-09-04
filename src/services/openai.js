@@ -237,6 +237,37 @@ export async function generarRespuestaLegalConImagen(file, mensaje, options = {}
   return completion.choices[0].message.content;
 }
 
+export async function generarRespuestaLegalConDocumento(file, mensaje, options = {}) {
+  const systemPrompt = await buildSystemPrompt(options);
+  const mimeType = file.mimetype || "application/pdf";
+  const fileData = `data:${mimeType};base64,${file.buffer.toString("base64")}`;
+
+  const response = await client.responses.create({
+    model: "gpt-4o-mini",
+    instructions: systemPrompt,
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: `${mensaje}\n\nEl PDF completo esta adjunto a esta solicitud. Revisa todas sus paginas antes de responder y señala expresamente cualquier fragmento que no pueda leerse con seguridad.`
+          },
+          {
+            type: "input_file",
+            filename: file.originalname || "documento.pdf",
+            file_data: fileData
+          }
+        ]
+      }
+    ],
+    max_output_tokens: 5000,
+    store: false
+  });
+
+  return response.output_text || "";
+}
+
 export async function transcribirAudio(file) {
   const audioFile = await toFile(file.buffer, file.originalname || "audio.mp3", {
     type: file.mimetype || "audio/mpeg"

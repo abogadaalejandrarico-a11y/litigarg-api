@@ -5,7 +5,7 @@ import { getUserPlan } from "../services/subscription.js";
 import { getPlanAudioMaxBytes, getPlanVideoMaxBytes } from "../services/plans.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
 import { extractDocumentText, hasMeaningfulDocumentText, isSupportedAudioFile, isSupportedImageFile, isSupportedVideoFile } from "../services/documentText.js";
-import { generarRespuestaLegal, generarRespuestaLegalConImagen, transcribirAudio } from "../services/openai.js";
+import { generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
   formatDocumentContext
@@ -370,6 +370,7 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
     let sourceQuery = `${prompt}\n${req.file.originalname}`;
     let respuesta = "";
     let documentContext = "";
+    let usePdfVision = false;
     const visibleUserMessage = `Documento adjunto: ${req.file.originalname}${prompt ? `\n\n${prompt}` : ""}`;
 
     if (isVideo) {
@@ -431,20 +432,35 @@ Tipo de archivo: imagen cargada por el usuario.
 
       if (!hasMeaningfulDocumentText(documentText)) {
         const isPdf = req.file.mimetype === "application/pdf" || req.file.originalname.toLowerCase().endsWith(".pdf");
-        return res.status(422).json({
-          code: "DOCUMENT_TEXT_NOT_EXTRACTABLE",
-          error: isPdf
-            ? "El PDF no contiene texto extraible o parece estar escaneado como imagen. Convierte el archivo con OCR o sube una version con texto seleccionable e intenta nuevamente."
-            : "El documento no contiene suficiente texto extraible para analizarlo. Verifica el archivo o sube una version con texto legible."
-        });
-      }
 
-      documentContext = [
-        `Archivo: ${req.file.originalname}`,
-        `Texto extraido: ${documentText.length} caracteres.`,
-        "El contenido completo disponible para analizar aparece delimitado en el mensaje del usuario."
-      ].join("\n");
-      message = `
+        if (!isPdf) {
+          return res.status(422).json({
+            code: "DOCUMENT_TEXT_NOT_EXTRACTABLE",
+            error: "El documento no contiene suficiente texto extraible para analizarlo. Verifica el archivo o sube una version con texto legible."
+          });
+        }
+
+        usePdfVision = true;
+        documentContext = [
+          `Archivo PDF escaneado: ${req.file.originalname}`,
+          "La extraccion convencional no encontro texto suficiente.",
+          "El PDF completo se adjunta como entrada visual para leer sus paginas antes de responder."
+        ].join("\n");
+        message = `
+${prompt}
+
+Nombre del archivo: ${req.file.originalname}
+
+Este PDF parece estar escaneado. Lee visualmente todas las paginas adjuntas antes de analizarlo. Basa la respuesta en el contenido real del archivo y distingue cualquier texto ilegible o dato incierto.
+        `.trim();
+        sourceQuery = `${prompt}\n${req.file.originalname}\nPDF escaneado para lectura visual`;
+      } else {
+        documentContext = [
+          `Archivo: ${req.file.originalname}`,
+          `Texto extraido: ${documentText.length} caracteres.`,
+          "El contenido completo disponible para analizar aparece delimitado en el mensaje del usuario."
+        ].join("\n");
+        message = `
 ${prompt}
 
 Nombre del archivo: ${req.file.originalname}
@@ -454,8 +470,9 @@ ${documentText}
 FIN DEL CONTENIDO EXTRAIDO DEL DOCUMENTO
 
 Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue recibido y su texto esta disponible en esta solicitud; no digas que no tienes acceso al adjunto.
-      `.trim();
-      sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
+        `.trim();
+        sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
+      }
     }
 
     const libraryContext = await getLibraryContext(buildLibrarySearchQuery(sourceQuery));
@@ -484,6 +501,8 @@ Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue 
 
     if (isImage) {
       respuesta = await generarRespuestaLegalConImagen(req.file, message, answerOptions);
+    } else if (usePdfVision) {
+      respuesta = await generarRespuestaLegalConDocumento(req.file, message, answerOptions);
     } else {
       respuesta = await generarRespuestaLegal(message, answerOptions);
     }
