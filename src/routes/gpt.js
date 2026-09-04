@@ -4,7 +4,7 @@ import authMiddlewares from "../middlewares/auth.js";
 import { getUserPlan } from "../services/subscription.js";
 import { getPlanAudioMaxBytes, getPlanVideoMaxBytes } from "../services/plans.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
-import { extractDocumentText, isSupportedAudioFile, isSupportedImageFile, isSupportedVideoFile } from "../services/documentText.js";
+import { extractDocumentText, hasMeaningfulDocumentText, isSupportedAudioFile, isSupportedImageFile, isSupportedVideoFile } from "../services/documentText.js";
 import { generarRespuestaLegal, generarRespuestaLegalConImagen, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
@@ -331,6 +331,13 @@ router.post("/chat", authMiddlewares, async (req, res) => {
 
 router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({
+        code: "FILE_REQUIRED",
+        error: "No se recibio ningun archivo. Selecciona un documento e intenta nuevamente."
+      });
+    }
+
     const userId = req.user.userId;
     const prompt = req.body.prompt || "Analiza este documento desde la perspectiva de litigacion penal y argumentacion juridica.";
     const conversationId = req.body.conversationId || "";
@@ -362,6 +369,7 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
     let message = "";
     let sourceQuery = `${prompt}\n${req.file.originalname}`;
     let respuesta = "";
+    let documentContext = "";
     const visibleUserMessage = `Documento adjunto: ${req.file.originalname}${prompt ? `\n\n${prompt}` : ""}`;
 
     if (isVideo) {
@@ -421,17 +429,31 @@ Tipo de archivo: imagen cargada por el usuario.
     } else {
       const documentText = await extractDocumentText(req.file);
 
-      if (!documentText) {
-        return res.status(400).json({ error: "No pude extraer texto del documento." });
+      if (!hasMeaningfulDocumentText(documentText)) {
+        const isPdf = req.file.mimetype === "application/pdf" || req.file.originalname.toLowerCase().endsWith(".pdf");
+        return res.status(422).json({
+          code: "DOCUMENT_TEXT_NOT_EXTRACTABLE",
+          error: isPdf
+            ? "El PDF no contiene texto extraible o parece estar escaneado como imagen. Convierte el archivo con OCR o sube una version con texto seleccionable e intenta nuevamente."
+            : "El documento no contiene suficiente texto extraible para analizarlo. Verifica el archivo o sube una version con texto legible."
+        });
       }
 
+      documentContext = [
+        `Archivo: ${req.file.originalname}`,
+        `Texto extraido: ${documentText.length} caracteres.`,
+        "El contenido completo disponible para analizar aparece delimitado en el mensaje del usuario."
+      ].join("\n");
       message = `
 ${prompt}
 
 Nombre del archivo: ${req.file.originalname}
 
-Contenido del documento:
+INICIO DEL CONTENIDO EXTRAIDO DEL DOCUMENTO
 ${documentText}
+FIN DEL CONTENIDO EXTRAIDO DEL DOCUMENTO
+
+Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue recibido y su texto esta disponible en esta solicitud; no digas que no tienes acceso al adjunto.
       `.trim();
       sourceQuery = `${prompt}\n${req.file.originalname}\n${documentText.slice(0, 3000)}`;
     }
@@ -452,6 +474,7 @@ ${documentText}
       conversationContext,
       libraryContext,
       learningContext,
+      documentContext,
       sourcesContext: sources.length
         ? formatSourcesForPrompt(sources)
         : sourceSearchNeeded

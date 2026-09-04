@@ -3,6 +3,7 @@ import { PDFParse } from "pdf-parse";
 
 const MAX_DOCUMENT_CHARS = 18000;
 const MAX_LIBRARY_CHARS = 300000;
+const MIN_MEANINGFUL_DOCUMENT_CHARS = 40;
 const TEXT_EXTENSIONS = new Set([
   ".txt",
   ".md",
@@ -113,6 +114,15 @@ export async function extractDocumentText(file, options = {}) {
 
 export function getLibraryTextLimit() {
   return MAX_LIBRARY_CHARS;
+}
+
+export function hasMeaningfulDocumentText(text, minChars = MIN_MEANINGFUL_DOCUMENT_CHARS) {
+  const meaningfulText = String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N}]/gu, "")
+    .trim();
+
+  return meaningfulText.length >= minChars;
 }
 
 export function isSupportedImageFile(file) {
