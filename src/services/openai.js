@@ -9,6 +9,26 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+export const GENERAL_MODEL = "gpt-4o-mini";
+export const DOCUMENT_ANALYSIS_MODEL = "gpt-5.4-mini";
+export const DOCUMENT_REASONING_EFFORT = "medium";
+
+const DOCUMENT_ANALYSIS_PROTOCOL = `
+PROTOCOLO OBLIGATORIO DE ANALISIS DOCUMENTAL JURIDICO
+- Lee el documento completo antes de responder. Verifica dos veces nombres, fechas, parentescos, lugares, bienes y conductas. Si un dato es ilegible, contradictorio o incierto, indicalo; no lo completes por intuicion.
+- Separa expresamente: (i) hechos que aparecen en el documento; (ii) afirmaciones de denunciantes, testigos o partes que aun requieren prueba; (iii) inferencias razonables; y (iv) datos faltantes.
+- Si preguntan que delito se configura, no adoptes automaticamente el delito escrito en el formulario ni la calificacion propuesta por una parte. Formula todas las hipotesis plausibles y contrasta una por una sus elementos objetivos, subjetivos y circunstancias relevantes con los hechos narrados.
+- Para diferenciar hurto y abuso de confianza, determina si hubo apoderamiento sin entrega previa o si el bien fue recibido bajo un titulo no traslativo de dominio y luego apropiado. Identifica el acto concreto de apoderamiento o apropiacion, su tiempo, modo y lugar; si falta, dilo con claridad.
+- Examina si los hechos tambien revelan una controversia civil, familiar, posesoria o sucesoral. No conviertas por si sola una disputa sobre propiedad, custodia, herencia o tenencia en responsabilidad penal.
+- Aplica presuncion de inocencia y evita conclusiones categoricas como "se configura", "esta demostrado" o "la denuncia esta bien documentada" cuando solo exista una narracion unilateral o falten elementos del tipo. Usa grados de conclusion: hipotesis principal, alternativa, elementos respaldados, elementos no acreditados y diligencias necesarias.
+- No inventes coautores, grupos, acuerdos, intenciones, relaciones de confianza, actos de disposicion ni evidencias. Toda afirmacion factica importante debe poder vincularse al contenido recibido.
+- Cierra con una conclusion juridica provisional y condicionada, seguida de preguntas o actos de investigacion concretos que permitirian confirmar o descartar cada hipotesis.
+`.trim();
+
+export function getDocumentAnalysisProtocol() {
+  return DOCUMENT_ANALYSIS_PROTOCOL;
+}
+
 const MASTER_PROMPT = `
 Eres LitigARG, una inteligencia artificial especializada en litigación penal colombiana dentro del Sistema Penal Oral Acusatorio.
 
@@ -171,7 +191,7 @@ async function buildSystemPrompt(options = {}) {
     ? `\n\nGUIA ESPECIFICA PARA ESTA RESPUESTA\n${options.responseGuidance.trim()}`
     : "";
   const uploadedDocumentContext = documentContext
-    ? `\n\nDOCUMENTO ADJUNTO DISPONIBLE EN ESTA SOLICITUD\n${documentContext}\n\nEl backend ya extrajo y adjunto el contenido del archivo a esta solicitud. Debes analizar ese contenido directamente. No afirmes que no tienes acceso al documento, que no puedes abrir adjuntos o que el usuario debe copiar su texto. Distingue con claridad los datos presentes en el documento de cualquier inferencia y no inventes contenido ausente.`
+    ? `\n\nDOCUMENTO ADJUNTO DISPONIBLE EN ESTA SOLICITUD\n${documentContext}\n\nEl backend ya extrajo o adjunto el contenido del archivo a esta solicitud. Debes analizar ese contenido directamente. No afirmes que no tienes acceso al documento, que no puedes abrir adjuntos o que el usuario debe copiar su texto.\n\n${DOCUMENT_ANALYSIS_PROTOCOL}`
     : "";
   const verifiedSourcesContext = sourcesContext
     ? `\n\nRESULTADO DE BUSQUEDA JURIDICA COLOMBIANA PARA ESTA RESPUESTA\n${sourcesContext}\n\nEvalua primero si estas fuentes responden exactamente al problema juridico del usuario. Usa solo derecho colombiano. Si el usuario pidio una linea jurisprudencial, organiza las decisiones en orden cronologico y no incluyas ninguna providencia que no aparezca en esta lista de fuentes verificadas. En la respuesta debes indicar brevemente que buscaste y que encontraste. Usa solo las fuentes que sean realmente pertinentes y no cites mas fuentes de las que uses en la respuesta. Distingue con rigor: una fuente de tipo "law" es norma colombiana; una fuente de tipo "jurisprudence" es providencia o sentencia; una fuente de tipo "repository_search" es solo una ruta de verificacion y no debe citarse como sentencia ni como soporte definitivo; una fuente de tipo "secondary_reference", como Ambito Juridico, solo sirve como orientacion o pista, nunca como autoridad judicial principal. Puedes citar el nombre de una sentencia y su enlace si la fuente dice "Cita con enlace oficial directo verificado: si". Solo puedes transcribir o atribuir un extracto si la fuente dice "Extracto verificado en el texto leido: si". Si no hay extracto verificado, no inventes ni reconstruyas uno; resume la regla con cautela y sin comillas. Cuando menciones una sentencia, providencia, norma o fuente directa de esta lista, el vinculo debe quedar en la misma oracion o justo al lado del nombre de la sentencia o norma, no solo al final de la respuesta. Ejemplo: "CSJ SP1477-2018 [Fuente oficial](https://...)" o "articulo 88 de la Ley 906 de 2004 [Fuente oficial](https://...)". Tambien puede repetirse en el apartado de fuentes. Si la fuente tiene extracto util verificado, incluyelo dentro del cuerpo de la respuesta en un parrafo propio y con lenguaje practico, por ejemplo: "Aqui te presento un extracto de la sentencia que puedes usar para sustentar ante el juez: ...". Luego explica como usar ese extracto en la solicitud o intervencion oral. No lo escondas solo en las fuentes. No copies bloques excesivamente largos: selecciona o sintetiza el fragmento que sirva para sostener el argumento. No cites como verificada una fuente que no aparezca aqui o que el usuario no haya aportado. Si las fuentes disponibles no tratan directamente el punto pedido, dilo expresamente y explica que se requiere una busqueda mas especifica en vez de presentar providencias apenas parecidas como si fueran suficientes.`
@@ -187,7 +207,7 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
   const systemPrompt = await buildSystemPrompt(options);
 
   const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: GENERAL_MODEL,
     messages: [
       {
         role: "system",
@@ -207,34 +227,48 @@ export async function generarRespuestaLegal(mensaje, options = {}) {
 export async function generarRespuestaLegalConImagen(file, mensaje, options = {}) {
   const systemPrompt = await buildSystemPrompt(options);
   const mimeType = file.mimetype || "image/png";
-  const imageBase64 = file.buffer.toString("base64");
+  const imageData = `data:${mimeType};base64,${file.buffer.toString("base64")}`;
 
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content: systemPrompt
-      },
+  const response = await client.responses.create({
+    model: DOCUMENT_ANALYSIS_MODEL,
+    reasoning: { effort: DOCUMENT_REASONING_EFFORT },
+    instructions: systemPrompt,
+    input: [
       {
         role: "user",
         content: [
           {
-            type: "text",
+            type: "input_text",
             text: `${mensaje}\n\nAnaliza la imagen con cuidado. Si contiene texto, transcribelo o resume lo relevante. Si contiene una escena, documento fotografiado, captura de pantalla, evidencia o elemento material, distingue lo observado directamente de las inferencias. No inventes datos que no sean visibles.`
           },
           {
-            type: "image_url",
-            image_url: {
-              url: `data:${mimeType};base64,${imageBase64}`
-            }
+            type: "input_image",
+            image_url: imageData,
+            detail: "high"
           }
         ]
       }
-    ]
+    ],
+    max_output_tokens: 7000,
+    store: false
   });
 
-  return completion.choices[0].message.content;
+  return response.output_text || "";
+}
+
+export async function generarRespuestaLegalConTextoDocumento(mensaje, options = {}) {
+  const systemPrompt = await buildSystemPrompt(options);
+
+  const response = await client.responses.create({
+    model: DOCUMENT_ANALYSIS_MODEL,
+    reasoning: { effort: DOCUMENT_REASONING_EFFORT },
+    instructions: systemPrompt,
+    input: mensaje,
+    max_output_tokens: 7000,
+    store: false
+  });
+
+  return response.output_text || "";
 }
 
 export async function generarRespuestaLegalConDocumento(file, mensaje, options = {}) {
@@ -243,7 +277,8 @@ export async function generarRespuestaLegalConDocumento(file, mensaje, options =
   const fileData = `data:${mimeType};base64,${file.buffer.toString("base64")}`;
 
   const response = await client.responses.create({
-    model: "gpt-4o-mini",
+    model: DOCUMENT_ANALYSIS_MODEL,
+    reasoning: { effort: DOCUMENT_REASONING_EFFORT },
     instructions: systemPrompt,
     input: [
       {
@@ -261,7 +296,7 @@ export async function generarRespuestaLegalConDocumento(file, mensaje, options =
         ]
       }
     ],
-    max_output_tokens: 5000,
+    max_output_tokens: 7000,
     store: false
   });
 

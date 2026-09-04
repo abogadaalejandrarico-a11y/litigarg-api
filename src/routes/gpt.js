@@ -5,7 +5,7 @@ import { getUserPlan } from "../services/subscription.js";
 import { getPlanAudioMaxBytes, getPlanVideoMaxBytes } from "../services/plans.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
 import { extractDocumentText, hasMeaningfulDocumentText, isSupportedAudioFile, isSupportedImageFile, isSupportedVideoFile } from "../services/documentText.js";
-import { generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, transcribirAudio } from "../services/openai.js";
+import { generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, generarRespuestaLegalConTextoDocumento, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
   formatDocumentContext
@@ -370,6 +370,7 @@ router.post("/analyze-file", authMiddlewares, upload.single("file"), async (req,
     let sourceQuery = `${prompt}\n${req.file.originalname}`;
     let respuesta = "";
     let documentContext = "";
+    let useDocumentReasoning = false;
     let usePdfVision = false;
     const visibleUserMessage = `Documento adjunto: ${req.file.originalname}${prompt ? `\n\n${prompt}` : ""}`;
 
@@ -420,6 +421,10 @@ ${transcription}
       `.trim();
       sourceQuery = `${prompt}\n${req.file.originalname}\n${transcription.slice(0, 3000)}`;
     } else if (isImage) {
+      documentContext = [
+        `Imagen adjunta: ${req.file.originalname}`,
+        "La imagen debe examinarse visualmente antes de formular conclusiones juridicas."
+      ].join("\n");
       message = `
 ${prompt}
 
@@ -428,6 +433,7 @@ Nombre del archivo: ${req.file.originalname}
 Tipo de archivo: imagen cargada por el usuario.
       `.trim();
     } else {
+      useDocumentReasoning = true;
       const documentText = await extractDocumentText(req.file);
 
       if (!hasMeaningfulDocumentText(documentText)) {
@@ -503,6 +509,8 @@ Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue 
       respuesta = await generarRespuestaLegalConImagen(req.file, message, answerOptions);
     } else if (usePdfVision) {
       respuesta = await generarRespuestaLegalConDocumento(req.file, message, answerOptions);
+    } else if (useDocumentReasoning) {
+      respuesta = await generarRespuestaLegalConTextoDocumento(message, answerOptions);
     } else {
       respuesta = await generarRespuestaLegal(message, answerOptions);
     }
