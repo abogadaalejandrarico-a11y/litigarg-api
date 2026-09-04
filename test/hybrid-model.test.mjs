@@ -13,8 +13,9 @@ test("mantiene el modelo economico para consultas generales", () => {
 test("reserva razonamiento medio para documentos e imagenes", () => {
   assert.match(openaiSource, /DOCUMENT_ANALYSIS_MODEL = "gpt-5\.4-mini"/);
   assert.match(openaiSource, /DOCUMENT_REASONING_EFFORT = "medium"/);
-  assert.equal((openaiSource.match(/model: DOCUMENT_ANALYSIS_MODEL/g) || []).length, 3);
+  assert.equal((openaiSource.match(/model: DOCUMENT_ANALYSIS_MODEL/g) || []).length, 4);
   assert.equal((openaiSource.match(/reasoning: \{ effort: DOCUMENT_REASONING_EFFORT \}/g) || []).length, 3);
+  assert.match(openaiSource, /extraerContextoJuridicoParaBusqueda[\s\S]*reasoning: \{ effort: "low" \}/);
 });
 
 test("enruta texto documental, imagenes y PDF escaneados al modelo avanzado", () => {

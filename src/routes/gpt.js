@@ -5,7 +5,7 @@ import { getUserPlan } from "../services/subscription.js";
 import { getPlanAudioMaxBytes, getPlanVideoMaxBytes } from "../services/plans.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
 import { extractDocumentText, hasMeaningfulDocumentText, isSupportedAudioFile, isSupportedImageFile, isSupportedVideoFile } from "../services/documentText.js";
-import { generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, generarRespuestaLegalConTextoDocumento, transcribirAudio } from "../services/openai.js";
+import { extraerContextoJuridicoParaBusqueda, generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, generarRespuestaLegalConTextoDocumento, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
   formatDocumentContext,
@@ -13,10 +13,31 @@ import {
 } from "../services/documentLibrary.js";
 import {
   addInlineSourceLinks,
+  enforceVerifiedJudicialCitations,
   formatSourcesForPrompt,
   searchJurisprudence,
   shouldSearchJurisprudence
 } from "../services/jurisprudenceSearch.js";
+
+function requestedDecisionCount(text = "") {
+  const normalized = String(text || "").toLowerCase();
+  const wordCounts = { una: 1, un: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5 };
+  const match = normalized.match(/\b(\d+|una?|dos|tres|cuatro|cinco)\s+(?:sentencias?|providencias?|fallos?)\b/);
+  return match ? (Number(match[1]) || wordCounts[match[1]] || 0) : 0;
+}
+
+function buildSourcesContext(sources, query, searchNeeded) {
+  const base = sources.length
+    ? formatSourcesForPrompt(sources)
+    : searchNeeded
+      ? "Busqueda oficial realizada: no se encontraron providencias suficientemente pertinentes para citar con seguridad en esta respuesta. Debes decirlo expresamente y no inventar ni forzar jurisprudencia."
+      : "";
+  const requested = requestedDecisionCount(query);
+  const verifiedDecisions = sources.filter(source => source.sourceType === "jurisprudence").length;
+
+  if (!requested || verifiedDecisions >= requested) return base;
+  return `${base}\n\nCONTROL OBLIGATORIO: el usuario solicito ${requested} providencia(s), pero solo hay ${verifiedDecisions} providencia(s) verificadas y pertinentes en las fuentes admitidas. No completes la cantidad con memoria ni con referencias aproximadas. Indica expresamente la insuficiencia y entrega solo las verificadas.`.trim();
+}
 import {
   findRelevantJurisprudence,
   saveJurisprudenceSources
@@ -326,13 +347,9 @@ router.post("/chat", authMiddlewares, async (req, res) => {
       libraryContext,
       learningContext,
       responseGuidance: buildResponseGuidance(message),
-      sourcesContext: sources.length
-        ? formatSourcesForPrompt(sources)
-        : sourceSearchNeeded
-          ? "Busqueda oficial realizada: no se encontraron providencias suficientemente pertinentes para citar con seguridad en esta respuesta. Debes decirlo expresamente y no inventar ni forzar jurisprudencia."
-          : ""
+      sourcesContext: buildSourcesContext(sources, message, sourceSearchNeeded)
     });
-    const linkedAnswer = addInlineSourceLinks(respuesta, sources);
+    const linkedAnswer = addInlineSourceLinks(enforceVerifiedJudicialCitations(respuesta, sources), sources);
     const updatedUsage = await finishUsage(userId, "message");
 
     res.json({
@@ -503,6 +520,14 @@ Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue 
       }
     }
 
+    if (usePdfVision) {
+      const preliminaryLegalContext = await extraerContextoJuridicoParaBusqueda(req.file, prompt);
+      if (preliminaryLegalContext) {
+        sourceQuery = `${prompt}\n${req.file.originalname}\n${preliminaryLegalContext}`;
+        documentContext = `${documentContext}\n\nAnalisis preliminar usado exclusivamente para buscar fuentes:\n${preliminaryLegalContext}`;
+      }
+    }
+
     const internalKnowledge = await buildInternalKnowledgeContext(sourceQuery);
     const libraryContext = internalKnowledge.context;
     const libraryLegalReferences = extractLibraryLegalReferences(libraryContext);
@@ -521,11 +546,7 @@ Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue 
       libraryContext,
       learningContext,
       documentContext,
-      sourcesContext: sources.length
-        ? formatSourcesForPrompt(sources)
-        : sourceSearchNeeded
-          ? "Busqueda oficial realizada: no se encontraron providencias suficientemente pertinentes para citar con seguridad en esta respuesta. Debes decirlo expresamente y no inventar ni forzar jurisprudencia."
-          : ""
+      sourcesContext: buildSourcesContext(sources, prompt, sourceSearchNeeded)
     };
 
     if (isImage) {
@@ -538,7 +559,7 @@ Instruccion obligatoria: analiza el contenido delimitado arriba. El archivo fue 
       respuesta = await generarRespuestaLegal(message, answerOptions);
     }
 
-    const linkedAnswer = addInlineSourceLinks(respuesta, sources);
+    const linkedAnswer = addInlineSourceLinks(enforceVerifiedJudicialCitations(respuesta, sources), sources);
     const updatedUsage = await finishUsage(userId, accessKind);
 
     res.json({

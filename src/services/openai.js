@@ -305,6 +305,37 @@ export async function generarRespuestaLegalConDocumento(file, mensaje, options =
   return response.output_text || "";
 }
 
+export async function extraerContextoJuridicoParaBusqueda(file, consulta = "") {
+  const mimeType = file.mimetype || "application/pdf";
+  const fileData = `data:${mimeType};base64,${file.buffer.toString("base64")}`;
+  const response = await client.responses.create({
+    model: DOCUMENT_ANALYSIS_MODEL,
+    reasoning: { effort: "low" },
+    instructions: [
+      "Eres un analista juridico colombiano que prepara una busqueda en repositorios oficiales.",
+      "Lee visualmente todas las paginas del PDF escaneado.",
+      "No respondas la consulta, no cites sentencias y no completes datos ilegibles.",
+      "Devuelve un resumen breve con: HECHOS CLAVE, PROBLEMAS JURIDICOS, FIGURAS JURIDICAS POSIBLES y TERMINOS DE BUSQUEDA.",
+      "En TERMINOS DE BUSQUEDA incluye conceptos juridicos discriminantes y evita nombres propios salvo que sean indispensables. Maximo 1200 caracteres."
+    ].join("\n"),
+    input: [{
+      role: "user",
+      content: [
+        { type: "input_text", text: `Consulta que se atendera despues: ${consulta}` },
+        {
+          type: "input_file",
+          filename: file.originalname || "documento.pdf",
+          file_data: fileData
+        }
+      ]
+    }],
+    max_output_tokens: 900,
+    store: false
+  });
+
+  return String(response.output_text || "").trim().slice(0, 1600);
+}
+
 export async function transcribirAudio(file) {
   const audioFile = await toFile(file.buffer, file.originalname || "audio.mp3", {
     type: file.mimetype || "audio/mpeg"

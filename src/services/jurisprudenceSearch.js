@@ -1261,6 +1261,51 @@ export function addInlineSourceLinks(answer = "", sources = []) {
   return linkedAnswer;
 }
 
+function normalizedCitationText(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toLowerCase();
+}
+
+export function findUnsupportedJudicialCitations(answer = "", sources = []) {
+  const allowedText = (Array.isArray(sources) ? sources : [])
+    .filter(source => source?.sourceType === "jurisprudence")
+    .map(source => [source.title, source.citation, source.caseNumber, source.radicado, source.url].filter(Boolean).join(" "))
+    .join(" ");
+  const allowed = normalizedCitationText(allowedText);
+  const text = String(answer || "");
+  const candidates = new Set();
+  const decisionPattern = /\b(?:CSJ\s+)?(?:SP|AP|SC|STC|SL|SU|C|T)[-\s]?\d{2,7}[-\s]\d{4}\b/gi;
+  const docketPattern = /\b(?:rad(?:icado)?\.?\s*(?:n[.º°o]\s*)?)(\d{4,9})\b/gi;
+
+  for (const match of text.matchAll(decisionPattern)) candidates.add(match[0]);
+  for (const match of text.matchAll(docketPattern)) candidates.add(match[0]);
+
+  return [...candidates].filter(candidate => {
+    const normalized = normalizedCitationText(candidate);
+    const withoutCorporation = normalized.replace(/^csj/, "");
+    const numeric = candidate.match(/\d{4,9}/)?.[0] || "";
+    return !allowed.includes(normalized) &&
+      !allowed.includes(withoutCorporation) &&
+      !(numeric.length >= 5 && allowed.includes(numeric));
+  });
+}
+
+export function enforceVerifiedJudicialCitations(answer = "", sources = []) {
+  const unsupported = findUnsupportedJudicialCitations(answer, sources);
+  if (!unsupported.length) return String(answer || "");
+
+  const unsafe = unsupported.map(normalizedCitationText);
+  const safeBlocks = String(answer || "").split(/\n{2,}/).filter(block => {
+    const normalized = normalizedCitationText(block);
+    return !unsafe.some(citation => normalized.includes(citation));
+  });
+  const notice = "Nota de verificacion: se omitieron referencias jurisprudenciales que no pudieron validarse en las fuentes oficiales recuperadas para esta consulta.";
+  return [...safeBlocks, notice].filter(Boolean).join("\n\n");
+}
+
 export async function searchJurisprudence(query) {
   if (!query || !query.trim()) {
     throw new Error("Consulta requerida");
