@@ -1349,7 +1349,7 @@ body{
 .library-upload-button{padding:7px 11px;border:0;border-radius:6px;background:#B30000;color:#FFF;font-size:12px;font-weight:700;cursor:pointer}
 .library-explorer-header,.library-explorer-row{
   display:grid;
-  grid-template-columns:minmax(240px,2fr) minmax(90px,.65fr) minmax(120px,.8fr) 102px;
+  grid-template-columns:minmax(240px,2fr) minmax(90px,.65fr) minmax(120px,.8fr) 164px;
   gap:8px;
   align-items:center;
   padding:5px 9px;
@@ -1362,7 +1362,7 @@ body{
 .library-entry-icon{font-size:16px;flex:0 0 auto}
 .library-folder-row{cursor:pointer}
 .library-row-actions{display:flex;gap:4px;justify-content:flex-end}
-.library-row-actions .neutral-action,.library-row-actions .danger-action{padding:5px 7px;border-radius:5px;font-size:11px}
+.library-row-actions .neutral-action,.library-row-actions .gold-action,.library-row-actions .danger-action{padding:5px 7px;border-radius:5px;font-size:11px}
 .library-empty{padding:24px 14px;text-align:center;color:#6B7280;background:#FFF}
 
 #libraryModal .library-list{
@@ -1378,6 +1378,10 @@ body{
 #libraryModal .library-status{min-height:16px;margin-top:3px;font-size:11px}
 #libraryModal .workspace-modal{padding:16px 18px}
 #libraryModal .workspace-modal > h3{margin:0 0 3px}
+
+.library-move-modal{width:min(460px,calc(100vw - 32px));height:auto;max-height:calc(100vh - 40px)}
+.library-move-modal select{width:100%;padding:10px;border:1px solid #D1D5DB;border-radius:7px;background:#FFF;color:#111;margin:12px 0}
+.library-move-actions{display:flex;justify-content:flex-end;gap:8px}
 
 .workspace-modal .library-list{
   flex:1;
@@ -2258,6 +2262,18 @@ body{
   </div>
 </div>
 
+<div class="modal-overlay" id="libraryMoveModal">
+  <div class="modal workspace-modal library-move-modal">
+    <h3>Mover archivo</h3>
+    <p id="libraryMoveFileName">Selecciona la carpeta de destino.</p>
+    <select id="libraryMoveDestination"></select>
+    <div class="library-move-actions">
+      <button class="neutral-action" onclick="closeLibraryMoveModal()">Cancelar</button>
+      <button class="premium-action" onclick="confirmMoveLibraryDocument()">Mover aquí</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="libraryViewerModal">
   <div class="modal workspace-modal">
     <h3>Vista del documento</h3>
@@ -2306,6 +2322,7 @@ let activeResetToken = "";
 let conversations = [];
 let libraryDocumentsCache = [];
 let libraryLocation = { category:null, collection:null };
+let movingLibraryDocumentId = null;
 
 let currentConversation = null;
 let attachedFile = null;
@@ -3106,7 +3123,7 @@ function renderLibraryFileRows(documents){
     const name = doc.fileName || doc.title || "Documento";
     const extension = name.includes(".") ? name.split(".").pop().toUpperCase() : "Archivo";
     const date = doc.created_at ? new Date(doc.created_at).toLocaleDateString("es-CO") : "—";
-    return `<div class="library-explorer-row"><div class="library-entry-name"><span class="library-entry-icon">📄</span><span title="${escapeAttribute(name)}">${escapeHtml(name)}</span></div><span class="library-explorer-detail">${escapeHtml(extension)}</span><span class="library-explorer-detail">${date}</span><div class="library-row-actions"><button class="neutral-action" onclick="viewLibraryDocument('${escapeAttribute(doc.id)}')">Ver</button><button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button></div></div>`;
+    return `<div class="library-explorer-row"><div class="library-entry-name"><span class="library-entry-icon">📄</span><span title="${escapeAttribute(name)}">${escapeHtml(name)}</span></div><span class="library-explorer-detail">${escapeHtml(extension)}</span><span class="library-explorer-detail">${date}</span><div class="library-row-actions"><button class="neutral-action" onclick="viewLibraryDocument('${escapeAttribute(doc.id)}')">Ver</button><button class="gold-action" onclick="openLibraryMoveModal('${escapeAttribute(doc.id)}')">Mover</button><button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button></div></div>`;
   }).join("");
 }
 
@@ -3119,6 +3136,72 @@ function libraryGoBack(){
   else if(libraryLocation.collection) libraryLocation.collection = null;
   else libraryLocation.category = null;
   renderLibraryDocuments();
+}
+
+function getLibraryCollectionName(doc){
+  const tags = Array.isArray(doc?.tags) ? doc.tags : [];
+  const tag = tags.find(value => String(value).toLowerCase().startsWith("colección:"));
+  return tag ? String(tag).split(":").slice(1).join(":").trim() : "";
+}
+
+function openLibraryMoveModal(documentId){
+  const doc = libraryDocumentsCache.find(item => String(item.id) === String(documentId));
+  if(!doc) return;
+  movingLibraryDocumentId = documentId;
+  const categories = ["reglas", "jurisprudencia", "doctrina", "articulos", "otros"];
+  const destinations = [{ value:"biblioteca|", label:"Biblioteca (principal)" }];
+  categories.forEach(category => {
+    destinations.push({ value:category + "|", label:getLibraryCategoryLabel(category) });
+    const collections = [...new Set(libraryDocumentsCache
+      .filter(item => normalizeLibraryCategory(item.category) === category)
+      .map(getLibraryCollectionName)
+      .filter(Boolean))];
+    collections.forEach(collection => destinations.push({ value:category + "|" + collection, label:getLibraryCategoryLabel(category) + " › " + collection }));
+  });
+  const rootCollections = [...new Set(libraryDocumentsCache
+    .filter(item => normalizeLibraryCategory(item.category) === "biblioteca")
+    .map(getLibraryCollectionName)
+    .filter(Boolean))];
+  rootCollections.forEach(collection => destinations.splice(1, 0, { value:"biblioteca|" + collection, label:"Biblioteca › " + collection }));
+  document.getElementById("libraryMoveDestination").innerHTML = destinations.map(destination => `<option value="${escapeAttribute(destination.value)}">${escapeHtml(destination.label)}</option>`).join("");
+  document.getElementById("libraryMoveDestination").value = normalizeLibraryCategory(doc.category) + "|" + getLibraryCollectionName(doc);
+  document.getElementById("libraryMoveFileName").innerText = doc.fileName || doc.title || "Archivo";
+  document.getElementById("libraryMoveModal").style.display = "flex";
+}
+
+function closeLibraryMoveModal(){
+  movingLibraryDocumentId = null;
+  document.getElementById("libraryMoveModal").style.display = "none";
+}
+
+async function confirmMoveLibraryDocument(){
+  const doc = libraryDocumentsCache.find(item => String(item.id) === String(movingLibraryDocumentId));
+  if(!doc) return;
+  const [category, collection] = document.getElementById("libraryMoveDestination").value.split("|");
+  const tags = (Array.isArray(doc.tags) ? doc.tags : [])
+    .filter(tag => !String(tag).toLowerCase().startsWith("colección:"));
+  if(collection) tags.push("Colección: " + collection);
+  setLibraryStatus("Moviendo archivo...");
+  try{
+    const res = await fetch(API_URL + "/api/library/" + encodeURIComponent(doc.id), {
+      method:"PATCH",
+      headers:{ "Content-Type":"application/json", Authorization:"Bearer " + token },
+      body:JSON.stringify({
+        title:doc.title || doc.fileName,
+        author:doc.author || "",
+        category,
+        tags,
+        description:doc.description || ""
+      })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "No se pudo mover el archivo.");
+    closeLibraryMoveModal();
+    setLibraryStatus("Archivo movido correctamente.");
+    await loadLibraryDocuments();
+  }catch(error){
+    setLibraryStatus(error.message || "No se pudo mover el archivo.", true);
+  }
 }
 async function loadLibraryDocuments(){
 
@@ -3729,6 +3812,7 @@ function logout(){
   document.getElementById("accountMenu").classList.remove("open");
   document.getElementById("accountModal").style.display = "none";
   document.getElementById("libraryModal").style.display = "none";
+  document.getElementById("libraryMoveModal").style.display = "none";
   document.getElementById("forgotPasswordModal").style.display = "none";
   updateLibraryAccess(false);
   updateGptAccessButton(false);
