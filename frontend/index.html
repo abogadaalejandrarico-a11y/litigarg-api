@@ -1322,6 +1322,48 @@ body{
   margin:18px 0;
 }
 
+.library-explorer-toolbar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px;
+  margin-top:14px;
+  background:#FFFFFF;
+  border:1px solid #D1D5DB;
+  border-radius:10px;
+}
+
+.library-nav-button{
+  width:38px;
+  height:38px;
+  border:1px solid #D1D5DB;
+  border-radius:8px;
+  background:#F9FAFB;
+  color:#111827;
+  cursor:pointer;
+  font-size:18px;
+}
+
+.library-nav-button:disabled{opacity:.4;cursor:default}
+.library-breadcrumb{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;color:#374151}
+.library-upload-button{padding:10px 14px;border:0;border-radius:8px;background:#B30000;color:#FFF;font-weight:700;cursor:pointer}
+.library-explorer-header,.library-explorer-row{
+  display:grid;
+  grid-template-columns:minmax(240px,2fr) minmax(110px,.8fr) minmax(140px,1fr) 110px;
+  gap:12px;
+  align-items:center;
+  padding:10px 12px;
+}
+.library-explorer-header{position:sticky;top:0;z-index:2;background:#F3F4F6;color:#4B5563;font-size:12px;font-weight:800;border-bottom:1px solid #D1D5DB}
+.library-explorer-row{background:#FFF;border-bottom:1px solid #E5E7EB;font-size:13px;color:#1F2937}
+.library-explorer-row:hover{background:#F9FAFB}
+.library-entry-name{display:flex;align-items:center;gap:10px;min-width:0;font-weight:700}
+.library-entry-name span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.library-entry-icon{font-size:20px;flex:0 0 auto}
+.library-folder-row{cursor:pointer}
+.library-row-actions{display:flex;gap:6px;justify-content:flex-end}
+.library-empty{padding:38px 18px;text-align:center;color:#6B7280;background:#FFF}
+
 .workspace-modal .library-list{
   flex:1;
   min-height:0;
@@ -1530,6 +1572,10 @@ body{
 }
 
 @media (max-width: 900px){
+  .library-explorer-header{display:none}
+  .library-explorer-row{grid-template-columns:1fr auto}
+  .library-explorer-detail{display:none}
+  .library-upload-button{padding:10px;font-size:12px}
   .sidebar{
     width:220px;
   }
@@ -2182,28 +2228,14 @@ body{
 <div class="modal-overlay" id="libraryModal">
   <div class="modal workspace-modal">
     <h3>Biblioteca interna</h3>
-    <p>Sube documentos individuales o una carpeta .zip. Cada ZIP se organiza como una colección y conserva la ruta de sus subcarpetas.</p>
-
-    <div class="library-form">
-      <input
-        type="file"
-        id="libraryFileInput"
-        accept=".zip,.pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,application/zip,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      >
-      <input type="text" id="libraryTitle" placeholder="Título del material o nombre de la colección ZIP">
-      <input type="text" id="libraryAuthor" placeholder="Autor (ej. W)">
-      <select id="libraryCategory">
-        <option value="reglas">Reglas</option>
-        <option value="jurisprudencia">Jurisprudencia</option>
-        <option value="doctrina">Doctrina</option>
-        <option value="articulos">Articulos</option>
-        <option value="otros">Otros</option>
-      </select>
-      <input type="text" id="libraryTags" placeholder="Etiquetas separadas por coma">
-      <textarea id="libraryDescription" placeholder="Descripcion breve del material"></textarea>
-      <button class="premium-action" onclick="uploadLibraryDocument()">Guardar en biblioteca</button>
-      <div class="library-status" id="libraryStatus"></div>
+    <div class="library-explorer-toolbar">
+      <button class="library-nav-button" id="libraryBackButton" onclick="libraryGoBack()" title="Atrás">←</button>
+      <button class="library-nav-button" onclick="libraryGoHome()" title="Carpeta principal">⌂</button>
+      <div class="library-breadcrumb" id="libraryBreadcrumb">Biblioteca</div>
+      <input type="file" id="libraryFileInput" hidden accept=".zip,.pdf,.docx,.txt,.md,.csv,.json,.html,.htm,.xml,.rtf,.js,.ts,.jsx,.tsx,.py,.java,.cs,.cpp,.c,.h,.go,.rb,.php,.sql,.css,.scss,.yml,.yaml,.log,application/zip,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onchange="uploadLibraryDocument()">
+      <button class="library-upload-button" onclick="document.getElementById('libraryFileInput').click()">Subir archivo o ZIP</button>
     </div>
+    <div class="library-status" id="libraryStatus"></div>
 
     <div class="library-list" id="libraryList"></div>
 
@@ -2258,6 +2290,7 @@ let activeResetToken = "";
 
 let conversations = [];
 let libraryDocumentsCache = [];
+let libraryLocation = { category:null, collection:null };
 
 let currentConversation = null;
 let attachedFile = null;
@@ -2997,57 +3030,70 @@ function getLibraryCategoryLabel(category){
 }
 
 function renderLibraryDocuments(documents){
-
   const list = document.getElementById("libraryList");
-  libraryDocumentsCache = documents || [];
+  if(Array.isArray(documents)) libraryDocumentsCache = documents;
+  const categories = ["reglas", "jurisprudencia", "doctrina", "articulos", "otros"];
+  const breadcrumb = ["Biblioteca"];
+  if(libraryLocation.category) breadcrumb.push(getLibraryCategoryLabel(libraryLocation.category));
+  if(libraryLocation.collection) breadcrumb.push(libraryLocation.collection);
+  document.getElementById("libraryBreadcrumb").innerText = breadcrumb.join("  ›  ");
+  document.getElementById("libraryBackButton").disabled = !libraryLocation.category;
 
   if(!libraryDocumentsCache.length){
-    list.innerHTML = '<div class="library-meta">Aun no hay documentos cargados en la biblioteca.</div>';
+    list.innerHTML = '<div class="library-empty">Aún no hay archivos cargados en la biblioteca.</div>';
     return;
   }
 
-  const categories = ["reglas", "jurisprudencia", "doctrina", "articulos", "otros"];
-
-  list.innerHTML = categories.map((category) => {
-    const grouped = libraryDocumentsCache.filter((doc) => normalizeLibraryCategory(doc.category) === category);
-
-    if(!grouped.length) return "";
-
-    const items = grouped.map((doc) => {
-      const tags = Array.isArray(doc.tags) ? doc.tags.join(", ") : String(doc.tags || "");
-      const parts = [
-        doc.author ? "Autor: " + escapeHtml(doc.author) : "",
-        doc.chunks ? doc.chunks + " fragmentos" : "",
-        tags ? "Etiquetas: " + escapeHtml(tags) : ""
-      ].filter(Boolean).join(" - ");
-
-      return `
-        <div class="library-item">
-          <div class="library-item-header">
-            <div>
-              <strong>${escapeHtml(doc.title || doc.fileName || "Documento")}</strong>
-              <div class="library-meta">${parts || "Material interno"}</div>
-              ${doc.description ? '<div class="library-meta">' + escapeHtml(doc.description) + '</div>' : ''}
-            </div>
-            <div class="library-actions">
-              <button class="neutral-action" onclick="viewLibraryDocument('${escapeAttribute(doc.id)}')">Ver</button>
-              <button class="gold-action" onclick="editLibraryDocument('${escapeAttribute(doc.id)}')">Editar</button>
-              <button class="neutral-action" onclick="rebuildLibraryDocument('${escapeAttribute(doc.id)}')">Reorganizar</button>
-              <button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button>
-            </div>
-          </div>
-        </div>
-      `;
+  const header = '<div class="library-explorer-header"><span>Nombre</span><span>Tipo</span><span>Fecha de carga</span><span>Acciones</span></div>';
+  if(!libraryLocation.category){
+    const folders = categories.map(category => {
+      const count = libraryDocumentsCache.filter(doc => normalizeLibraryCategory(doc.category) === category).length;
+      if(!count) return "";
+      return `<div class="library-explorer-row library-folder-row" onclick="libraryOpenCategory('${category}')"><div class="library-entry-name"><span class="library-entry-icon">📁</span><span>${getLibraryCategoryLabel(category)}</span></div><span class="library-explorer-detail">Carpeta</span><span class="library-explorer-detail">${count} archivo${count === 1 ? "" : "s"}</span><span></span></div>`;
     }).join("");
+    list.innerHTML = header + (folders || '<div class="library-empty">No hay carpetas con archivos.</div>');
+    return;
+  }
 
-    return `
-      <section class="library-category-group">
-        <div class="library-category-title">${getLibraryCategoryLabel(category)}</div>
-        ${items}
-      </section>
-    `;
+  const categoryDocs = libraryDocumentsCache.filter(doc => normalizeLibraryCategory(doc.category) === libraryLocation.category);
+  const getCollection = doc => {
+    const tags = Array.isArray(doc.tags) ? doc.tags : [];
+    const tag = tags.find(value => String(value).toLowerCase().startsWith("colección:"));
+    return tag ? String(tag).split(":").slice(1).join(":").trim() : "";
+  };
+
+  if(!libraryLocation.collection){
+    const collections = [...new Set(categoryDocs.map(getCollection).filter(Boolean))];
+    const folderRows = collections.map(collection => {
+      const count = categoryDocs.filter(doc => getCollection(doc) === collection).length;
+      return `<div class="library-explorer-row library-folder-row" onclick="libraryOpenCollection(decodeURIComponent('${encodeURIComponent(collection)}'))"><div class="library-entry-name"><span class="library-entry-icon">📁</span><span>${escapeHtml(collection)}</span></div><span class="library-explorer-detail">Colección ZIP</span><span class="library-explorer-detail">${count} archivo${count === 1 ? "" : "s"}</span><span></span></div>`;
+    }).join("");
+    const looseDocs = categoryDocs.filter(doc => !getCollection(doc));
+    list.innerHTML = header + folderRows + renderLibraryFileRows(looseDocs);
+    if(!folderRows && !looseDocs.length) list.innerHTML += '<div class="library-empty">Esta carpeta está vacía.</div>';
+    return;
+  }
+
+  list.innerHTML = header + renderLibraryFileRows(categoryDocs.filter(doc => getCollection(doc) === libraryLocation.collection));
+
+}
+
+function renderLibraryFileRows(documents){
+  return documents.map(doc => {
+    const name = doc.fileName || doc.title || "Documento";
+    const extension = name.includes(".") ? name.split(".").pop().toUpperCase() : "Archivo";
+    const date = doc.created_at ? new Date(doc.created_at).toLocaleDateString("es-CO") : "—";
+    return `<div class="library-explorer-row"><div class="library-entry-name"><span class="library-entry-icon">📄</span><span title="${escapeAttribute(name)}">${escapeHtml(name)}</span></div><span class="library-explorer-detail">${escapeHtml(extension)}</span><span class="library-explorer-detail">${date}</span><div class="library-row-actions"><button class="neutral-action" onclick="viewLibraryDocument('${escapeAttribute(doc.id)}')">Ver</button><button class="danger-action" onclick="deleteLibraryDocument('${escapeAttribute(doc.id)}')">Eliminar</button></div></div>`;
   }).join("");
+}
 
+function libraryOpenCategory(category){ libraryLocation = { category, collection:null }; renderLibraryDocuments(); }
+function libraryOpenCollection(collection){ libraryLocation.collection = collection; renderLibraryDocuments(); }
+function libraryGoHome(){ libraryLocation = { category:null, collection:null }; renderLibraryDocuments(); }
+function libraryGoBack(){
+  if(libraryLocation.collection) libraryLocation.collection = null;
+  else libraryLocation.category = null;
+  renderLibraryDocuments();
 }
 async function loadLibraryDocuments(){
 
@@ -3090,11 +3136,11 @@ async function uploadLibraryDocument(){
 
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("title", document.getElementById("libraryTitle").value.trim());
-  formData.append("author", document.getElementById("libraryAuthor").value.trim());
-  formData.append("category", document.getElementById("libraryCategory").value.trim());
-  formData.append("tags", document.getElementById("libraryTags").value.trim());
-  formData.append("description", document.getElementById("libraryDescription").value.trim());
+  formData.append("title", "");
+  formData.append("author", "");
+  formData.append("category", libraryLocation.category || "reglas");
+  formData.append("tags", libraryLocation.collection ? `Colección: ${libraryLocation.collection}` : "");
+  formData.append("description", "");
 
   const isZip = file.name.toLowerCase().endsWith(".zip");
   setLibraryStatus(isZip ? "Subiendo y organizando la colección..." : "Subiendo y leyendo el documento...");
@@ -3115,11 +3161,6 @@ async function uploadLibraryDocument(){
     }
 
     fileInput.value = "";
-    document.getElementById("libraryTitle").value = "";
-    document.getElementById("libraryAuthor").value = "";
-    document.getElementById("libraryCategory").value = "reglas";
-    document.getElementById("libraryTags").value = "";
-    document.getElementById("libraryDescription").value = "";
     if(isZip){
       const imported = Array.isArray(data.imported) ? data.imported.length : 0;
       const skipped = Array.isArray(data.skipped) ? data.skipped.length : 0;
