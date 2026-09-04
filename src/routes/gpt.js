@@ -5,7 +5,7 @@ import { getUserPlan } from "../services/subscription.js";
 import { getPlanAudioMaxBytes, getPlanVideoMaxBytes } from "../services/plans.js";
 import { canUseDailyFeature, incrementDailyUsage } from "../services/usage.js";
 import { extractDocumentText, hasMeaningfulDocumentText, isSupportedAudioFile, isSupportedImageFile, isSupportedVideoFile } from "../services/documentText.js";
-import { extraerContextoJuridicoParaBusqueda, generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, generarRespuestaLegalConTextoDocumento, reconstruirRespuestaConFuentesVerificadas, transcribirAudio } from "../services/openai.js";
+import { extraerContextoJuridicoParaBusqueda, generarAnalisisDesdeFichasVerificadas, generarRespuestaLegal, generarRespuestaLegalConDocumento, generarRespuestaLegalConImagen, generarRespuestaLegalConTextoDocumento, reconstruirRespuestaConFuentesVerificadas, transcribirAudio } from "../services/openai.js";
 import {
   findRelevantDocuments,
   formatDocumentContext,
@@ -44,6 +44,17 @@ function buildSourcesContext(sources, query, searchNeeded) {
 
 async function finalizeVerifiedAnswer(query, answer, sources, answerOptions) {
   let finalAnswer = String(answer || "");
+  const asksForLegalResearch = /jurisprud|sentencia|precedente|providencia|fallo/i.test(query);
+
+  if (asksForLegalResearch && sources.length) {
+    const sourceLedAnswer = await generarAnalisisDesdeFichasVerificadas(query, sources, answerOptions);
+    finalAnswer = sourceLedAnswer.replace(/\[F(\d+)\]/g, (marker, number) => {
+      const source = sources[Number(number) - 1];
+      if (!source) return "[fuente no disponible]";
+      return source.url ? `[${source.title}](${source.url})` : source.title;
+    });
+  }
+
   let unsupported = [
     ...findUnsupportedJudicialCitations(finalAnswer, sources),
     ...findUnsupportedStatutoryReferences(finalAnswer, sources)

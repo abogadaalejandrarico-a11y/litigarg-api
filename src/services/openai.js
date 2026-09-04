@@ -250,6 +250,45 @@ export async function reconstruirRespuestaConFuentesVerificadas(mensaje, borrado
   return completion.choices[0].message.content || "";
 }
 
+export async function generarAnalisisDesdeFichasVerificadas(mensaje, sources = [], options = {}) {
+  const systemPrompt = await buildSystemPrompt(options);
+  const fichas = sources.map((source, index) => [
+    `[F${index + 1}]`,
+    `tipo=${source.sourceType || "fuente"}`,
+    source.year ? `año=${source.year}` : "",
+    `contenido_verificado=${source.extract || source.snippet || "Sin extracto util disponible"}`
+  ].filter(Boolean).join(" | ")).join("\n\n");
+  const completion = await client.chat.completions.create({
+    model: GENERAL_MODEL,
+    messages: [
+      {
+        role: "system",
+        content: `${systemPrompt}\n\nMETODO OBLIGATORIO DE FICHAS: redacta exclusivamente a partir de las fichas F entregadas. Para citar usa solamente los marcadores exactos [F1], [F2], etc. No escribas nombres, numeros, radicados, fechas, articulos ni enlaces por tu cuenta: el sistema sustituira cada marcador con el dato oficial bloqueado. No copies mecanicamente los extractos; extrae sus reglas y explica su utilidad practica sin ampliar su alcance.`
+      },
+      {
+        role: "user",
+        content: [
+          `CONSULTA:\n${mensaje}`,
+          `FICHAS VERIFICADAS:\n${fichas}`,
+          [
+            "Entrega un concepto juridico sustancial y util para litigacion con estas secciones:",
+            "1. Respuesta ejecutiva y problema juridico.",
+            "2. Marco normativo aplicable.",
+            "3. Desarrollo jurisprudencial cronologico: regla concreta de cada decision y que agrega frente a la anterior.",
+            "4. Subreglas vigentes o criterios que deben demostrarse.",
+            "5. Aplicacion practica: argumentos posibles para defensa y acusacion, hechos que cambian la conclusion y prueba necesaria.",
+            "6. Limites de la busqueda y conclusion.",
+            "Evita recomendaciones genericas, frases de relleno y anuncios sin desarrollo. Si una ficha no permite afirmar algo, dilo."
+          ].join("\n")
+        ].join("\n\n")
+      }
+    ],
+    max_tokens: 6000
+  });
+
+  return completion.choices[0].message.content || "";
+}
+
 export async function generarRespuestaLegalConImagen(file, mensaje, options = {}) {
   const systemPrompt = await buildSystemPrompt(options);
   const mimeType = file.mimetype || "image/png";

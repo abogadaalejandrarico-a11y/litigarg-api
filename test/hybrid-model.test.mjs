@@ -24,6 +24,12 @@ test("enruta texto documental, imagenes y PDF escaneados al modelo avanzado", ()
   assert.match(routeSource, /generarRespuestaLegalConTextoDocumento\(message, answerOptions\)/);
 });
 
+test("las consultas jurisprudenciales se sintetizan desde fichas verificadas", () => {
+  assert.match(openaiSource, /generarAnalisisDesdeFichasVerificadas/);
+  assert.match(openaiSource, /Para citar usa solamente los marcadores exactos \[F1\], \[F2\]/);
+  assert.match(routeSource, /sourceLedAnswer\.replace\(\/\\\[F\(\\d\+\)\\\]\//);
+});
+
 test("el protocolo impide conclusiones penales automaticas", () => {
   assert.match(openaiSource, /hipotesis plausibles/i);
   assert.match(openaiSource, /hurto y abuso de confianza/i);
