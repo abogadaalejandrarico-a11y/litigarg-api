@@ -3022,6 +3022,7 @@ function normalizeLibraryCategory(category){
 
   const value = String(category || "otros").toLowerCase();
 
+  if(value.includes("biblioteca")) return "biblioteca";
   if(value.includes("regla")) return "reglas";
   if(value.includes("juris")) return "jurisprudencia";
   if(value.includes("doctr")) return "doctrina";
@@ -3033,6 +3034,7 @@ function normalizeLibraryCategory(category){
 function getLibraryCategoryLabel(category){
 
   const labels = {
+    biblioteca:"Biblioteca",
     reglas:"Reglas",
     jurisprudencia:"Jurisprudencia",
     doctrina:"Doctrina",
@@ -3049,7 +3051,7 @@ function renderLibraryDocuments(documents){
   if(Array.isArray(documents)) libraryDocumentsCache = documents;
   const categories = ["reglas", "jurisprudencia", "doctrina", "articulos", "otros"];
   const breadcrumb = ["Biblioteca"];
-  if(libraryLocation.category) breadcrumb.push(getLibraryCategoryLabel(libraryLocation.category));
+  if(libraryLocation.category && libraryLocation.category !== "biblioteca") breadcrumb.push(getLibraryCategoryLabel(libraryLocation.category));
   if(libraryLocation.collection) breadcrumb.push(libraryLocation.collection);
   document.getElementById("libraryBreadcrumb").innerText = breadcrumb.join("  ›  ");
   document.getElementById("libraryBackButton").disabled = !libraryLocation.category;
@@ -3060,23 +3062,29 @@ function renderLibraryDocuments(documents){
   }
 
   const header = '<div class="library-explorer-header"><span>Nombre</span><span>Tipo</span><span>Fecha de carga</span><span>Acciones</span></div>';
+  const getCollection = doc => {
+    const tags = Array.isArray(doc.tags) ? doc.tags : [];
+    const tag = tags.find(value => String(value).toLowerCase().startsWith("colección:"));
+    return tag ? String(tag).split(":").slice(1).join(":").trim() : "";
+  };
   if(!libraryLocation.category){
     const folders = categories.map(category => {
       const count = libraryDocumentsCache.filter(doc => normalizeLibraryCategory(doc.category) === category).length;
       if(!count) return "";
       return `<div class="library-explorer-row library-folder-row" onclick="libraryOpenCategory('${category}')"><div class="library-entry-name"><span class="library-entry-icon">📁</span><span>${getLibraryCategoryLabel(category)}</span></div><span class="library-explorer-detail">Carpeta</span><span class="library-explorer-detail">${count} archivo${count === 1 ? "" : "s"}</span><span></span></div>`;
     }).join("");
-    list.innerHTML = header + (folders || '<div class="library-empty">No hay carpetas con archivos.</div>');
+    const rootDocs = libraryDocumentsCache.filter(doc => normalizeLibraryCategory(doc.category) === "biblioteca");
+    const rootCollections = [...new Set(rootDocs.map(getCollection).filter(Boolean))].map(collection => {
+      const count = rootDocs.filter(doc => getCollection(doc) === collection).length;
+      return `<div class="library-explorer-row library-folder-row" onclick="libraryOpenRootCollection(decodeURIComponent('${encodeURIComponent(collection)}'))"><div class="library-entry-name"><span class="library-entry-icon">📁</span><span>${escapeHtml(collection)}</span></div><span class="library-explorer-detail">Colección ZIP</span><span class="library-explorer-detail">${count} archivo${count === 1 ? "" : "s"}</span><span></span></div>`;
+    }).join("");
+    const rootFiles = renderLibraryFileRows(rootDocs.filter(doc => !getCollection(doc)));
+    list.innerHTML = header + folders + rootCollections + rootFiles;
+    if(!folders && !rootCollections && !rootFiles) list.innerHTML += '<div class="library-empty">No hay archivos en la Biblioteca.</div>';
     return;
   }
 
   const categoryDocs = libraryDocumentsCache.filter(doc => normalizeLibraryCategory(doc.category) === libraryLocation.category);
-  const getCollection = doc => {
-    const tags = Array.isArray(doc.tags) ? doc.tags : [];
-    const tag = tags.find(value => String(value).toLowerCase().startsWith("colección:"));
-    return tag ? String(tag).split(":").slice(1).join(":").trim() : "";
-  };
-
   if(!libraryLocation.collection){
     const collections = [...new Set(categoryDocs.map(getCollection).filter(Boolean))];
     const folderRows = collections.map(collection => {
@@ -3103,10 +3111,12 @@ function renderLibraryFileRows(documents){
 }
 
 function libraryOpenCategory(category){ libraryLocation = { category, collection:null }; renderLibraryDocuments(); }
+function libraryOpenRootCollection(collection){ libraryLocation = { category:"biblioteca", collection }; renderLibraryDocuments(); }
 function libraryOpenCollection(collection){ libraryLocation.collection = collection; renderLibraryDocuments(); }
 function libraryGoHome(){ libraryLocation = { category:null, collection:null }; renderLibraryDocuments(); }
 function libraryGoBack(){
-  if(libraryLocation.collection) libraryLocation.collection = null;
+  if(libraryLocation.category === "biblioteca") libraryLocation = { category:null, collection:null };
+  else if(libraryLocation.collection) libraryLocation.collection = null;
   else libraryLocation.category = null;
   renderLibraryDocuments();
 }
@@ -3153,7 +3163,7 @@ async function uploadLibraryDocument(){
   formData.append("file", file);
   formData.append("title", "");
   formData.append("author", "");
-  formData.append("category", libraryLocation.category || "reglas");
+  formData.append("category", libraryLocation.category || "biblioteca");
   formData.append("tags", libraryLocation.collection ? `Colección: ${libraryLocation.collection}` : "");
   formData.append("description", "");
 
